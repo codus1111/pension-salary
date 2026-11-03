@@ -1,0 +1,6 @@
+data/raw/
+data/processed/
+.env
+.env.txt
+.mcp.json
+__pycache__/

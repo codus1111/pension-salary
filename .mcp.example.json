@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "company-salary": {
+      "command": "wsl.exe",
+      "args": [
+        "-d", "Ubuntu",
+        "--cd", "/mnt/c/경로/pension-salary",
+        "--", "/home/사용자/venvs/pension/bin/python", "src/mcp_server.py"
+      ]
+    }
+  }
+}
