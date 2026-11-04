@@ -148,6 +148,42 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .k-e {{ width:10px; height:10px; background:#0868ec; transform:rotate(45deg); border-radius:1px; }}
 .k-l {{ width:22px; height:10px; background:#8dbaf5; border-radius:4px; }}
 .k-d {{ width:4px; height:14px; background:#f08c2e; border-radius:2px; }}
+/* 회사 하나: 눈금자 (그림 위에 말로 직접 표시) */
+.sr {{ background:white; border:1px solid var(--line); border-radius:16px; padding:18px 22px 14px; margin:10px 0 8px; }}
+.sr-head {{ font-size:17px !important; margin:0 0 54px; }}
+.sr-head b {{ color:var(--blue); }}
+.sr-track {{ position:relative; height:16px; background:#edf2f8; border-radius:8px; margin:0 6% 40px; }}
+.sr-band {{ position:absolute; top:0; height:16px; background:#a9cbf7; border-radius:8px; }}
+.sr-band em {{ position:absolute; top:22px; font-style:normal; font-size:12px; color:#62758d; white-space:nowrap; }}
+.sr-lo {{ left:0; transform:translateX(-50%); }}
+.sr-hi {{ right:0; transform:translateX(50%); }}
+.sr-mark {{ position:absolute; top:-6px; width:4px; height:28px; margin-left:-2px; border-radius:2px; }}
+.sr-mark span {{ position:absolute; bottom:34px; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:13px;
+                 font-weight:700; padding:3px 9px; border-radius:99px; color:white; }}
+.sr-est {{ background:#0868ec; }}
+.sr-est span {{ background:#0868ec; }}
+.sr-dart {{ background:#e07a16; }}
+.sr-dart span {{ background:#e07a16; bottom:auto; top:34px; }}
+.sr-note {{ font-size:13px !important; color:#3a5170 !important; margin:30px 0 0; line-height:1.7; }}
+/* 여러 회사: 가로 막대 */
+.cb {{ background:white; border:1px solid var(--line); border-radius:16px; padding:16px 20px 10px; margin:10px 0 8px; }}
+.cb-head {{ font-size:12px !important; color:#62758d !important; margin:0 0 10px; }}
+.cb-row {{ display:grid; grid-template-columns:minmax(120px,220px) 1fr; gap:14px; align-items:center; padding:8px 0;
+           border-top:1px solid #f0f4f9; }}
+.cb-name {{ font-size:14px; font-weight:600; color:var(--ink); }}
+.cb-name small {{ display:block; font-size:11px; font-weight:400; color:#8193a8; margin-top:2px; }}
+.cb-bars {{ display:flex; flex-direction:column; gap:5px; }}
+.cb-line {{ display:flex; align-items:center; gap:8px; }}
+.cb-line span {{ font-size:12px; font-weight:700; white-space:nowrap; }}
+.cb-line .v-e {{ color:#0868ec; }}
+.cb-line .v-d {{ color:#d9731a; }}
+.cb-bar {{ height:18px; border-radius:6px; min-width:4px; flex:none; }}
+.cb-est {{ background:#0868ec; }}
+.cb-dart {{ background:#f08c2e; }}
+@media (max-width:640px) {{
+  .cb-row {{ grid-template-columns:1fr; gap:6px; }}
+  .sr-track {{ margin:0 14% 40px; }}
+}}
 .rc-axis {{ min-height:22px; }}
 .rc-ticks {{ background:none; height:16px; }}
 .rc-ticks span {{ transform:translateX(-50%); font-size:11px; color:#8193a8; white-space:nowrap; height:auto; }}
@@ -281,51 +317,73 @@ def collect(trace):
     return None, []
 
 
-def range_chart(rows):
-    """회사마다 넓은 범위(80%)·가능성 높은 범위(50%)·추정값(◆)·공시 연봉(|)을 한 줄에 그린다.
+def won(m):
+    """만 원 단위 정수 → '1억 78만', '9,276만'."""
+    if m is None:
+        return "-"
+    eok, man = divmod(int(m), 10_000)
+    return (f"{eok}억 {man:,}만" if man else f"{eok}억") if eok else f"{man:,}만"
 
-    그래프 라이브러리(Vega) 대신 HTML로 직접 그린다: 배포 직후 브라우저가 그래프용 파일을 못 받아
-    'Failed to fetch dynamically imported module' 오류가 난 적이 있어서, 추가 파일 없이 보이게 했다.
-    """
+
+# 그래프는 라이브러리(Vega) 대신 HTML로 직접 그린다: 배포 직후 브라우저가 그래프용 파일을 못 받아
+# 'Failed to fetch dynamically imported module' 오류가 난 적이 있어서, 추가 파일 없이 보이게 했다.
+# 처음엔 범위 막대·마름모·주황 선을 범례로 설명했는데 "무슨 뜻인지 모르겠다, 오류인 줄 알았다"는 의견이 있어서,
+# 범례 없이 그림 위에 말로 직접 적는 두 가지 모양으로 바꿨다.
+
+def salary_ruler(r):
+    """회사 하나: '이 사이일 가능성이 커요'를 크게 쓰고, 눈금자 위에 추정·실제 공시를 말로 직접 표시한다."""
+    c, d = r.get("likely_range_manwon") or [None, None]
+    est, dart = r["estimated_salary_manwon"], r.get("dart_actual_salary_manwon")
+    if not c:
+        return ""
+    vals = [v for v in (c, d, est, dart) if v]
+    pad = (max(vals) - min(vals)) * 0.12 or 500
+    lo, hi = min(vals) - pad, max(vals) + pad
+    pos = lambda v: (v - lo) / (hi - lo) * 100  # noqa: E731
+    marks = f'<div class="sr-mark sr-est" style="left:{pos(est):.1f}%"><span>추정 {won(est)}</span></div>'
+    if dart:
+        marks += f'<div class="sr-mark sr-dart" style="left:{pos(dart):.1f}%"><span>실제 {won(dart)}</span></div>'
+    if not dart:
+        note = "상장사가 아니라 실제 공시 연봉이 없어요. 이 범위가 지금 알 수 있는 최선이에요."
+    elif c <= dart <= d:
+        note = f"✅ 실제 공시 연봉({won(dart)} 원)이 이 범위 안에 있어요. 추정이 잘 맞은 회사예요."
+    elif dart > d:
+        note = (f"📌 실제 공시 연봉({won(dart)} 원)이 범위보다 높아요. 성과급이 많은 회사는 국민연금 자료로는 "
+                "낮게 잡혀요. 이런 회사는 실제 공시 숫자를 믿으세요.")
+    else:
+        note = f"📌 실제 공시 연봉({won(dart)} 원)이 범위보다 낮아요. 이런 회사는 실제 공시 숫자를 믿으세요."
+    return (f'<div class="sr"><p class="sr-head">평균 연봉은 <b>{won(c)} ~ {won(d)} 원</b> 사이일 가능성이 커요</p>'
+            f'<div class="sr-track"><div class="sr-band" style="left:{pos(c):.1f}%;width:{pos(d) - pos(c):.1f}%">'
+            f'<em class="sr-lo">{won(c)}</em><em class="sr-hi">{won(d)}</em></div>{marks}</div>'
+            f'<p class="sr-note">{note}</p></div>')
+
+
+def compare_chart(rows):
+    """여러 회사: 누구나 읽는 가로 막대(0부터). 막대 끝에 금액을 쓰고, 실제 공시가 있으면 주황 막대를 바로 아래에."""
     rows = sorted([r for r in rows if r.get("estimated_salary_manwon")], key=lambda r: -r["estimated_salary_manwon"])
     if not rows:
         return None
-    # 처음엔 넓은 범위(80%)·가능성 높은 범위(50%)를 둘 다 그렸더니 한눈에 안 들어온다는 의견이 있어서,
-    # 막대는 '예상 범위(50%)' 하나만 그리고 80% 범위는 마우스를 올렸을 때 글로만 보여준다
-    pair = lambda r, k: (r.get(k) or [None, None])  # noqa: E731
-    vals = [v for r in rows for v in (*pair(r, "likely_range_manwon"), r["estimated_salary_manwon"],
-                                      r.get("dart_actual_salary_manwon")) if v]
-    span = max(vals) - min(vals)
-    step = 1000 if span > 3000 else 500 if span > 1000 else 200
-    lo, hi = (min(vals) // step) * step, -(-max(vals) // step) * step
-    hi = hi if hi > lo else lo + step
-    pos = lambda v: (v - lo) / (hi - lo) * 100  # noqa: E731
-    lines, any_dart = [], False
+    top = max(max(r["estimated_salary_manwon"], r.get("dart_actual_salary_manwon") or 0) for r in rows) * 1.08
+    any_dart = any(r.get("dart_actual_salary_manwon") for r in rows)
+    lines = []
     for r in rows:
-        (a, b), (c, d) = pair(r, "range_manwon"), pair(r, "likely_range_manwon")
         est, dart = r["estimated_salary_manwon"], r.get("dart_actual_salary_manwon")
-        any_dart |= bool(dart)
-        tip = f"추정 {est:,}만 원" + (f" · 예상 범위 {c:,}~{d:,}만" if c else "") + \
-              (f" · 넓게 보면 {a:,}~{b:,}만" if a else "") + (f" · 실제 공시 {dart:,}만" if dart else "")
-        bars = (f'<span class="rc-l" style="left:{pos(c):.1f}%;width:{pos(d) - pos(c):.1f}%"></span>' if c else "") + \
-               f'<span class="rc-e" style="left:{pos(est):.1f}%"></span>' + \
-               (f'<span class="rc-d" style="left:{pos(dart):.1f}%"></span>' if dart else "")
-        val = f'<b class="v-e">{est:,}</b>' + (f'<b class="v-d">{dart:,}</b>' if dart else "")
-        lines.append(f'<div class="rc-row" title="{html.escape(tip)}"><div class="rc-name">{html.escape(r["name"])}</div>'
-                     f'<div class="rc-track">{bars}</div><div class="rc-val">{val}</div></div>')
-    n_ticks = int((hi - lo) / step)
-    skip = max(1, -(-n_ticks // 6))
-    ticks = "".join(f'<span style="left:{pos(lo + i * step):.1f}%">{lo + i * step:,}</span>'
-                    for i in range(0, n_ticks + 1, skip))
-    legend = ('<div class="rc-legend"><span><i class="k-e"></i>추정 연봉</span>'
-              '<span><i class="k-l"></i>예상 범위 (비슷한 회사 2곳 중 1곳이 이 안)</span>'
-              + ('<span><i class="k-d"></i>실제 공시 연봉 (상장사)</span>' if any_dart else "")
-              + '<span class="rc-unit">단위: 만 원</span></div>')
-    return (f'<div class="rc">{legend}{"".join(lines)}<div class="rc-row rc-axis"><div class="rc-name"></div>'
-            f'<div class="rc-track rc-ticks">{ticks}</div><div class="rc-val"></div></div></div>')
+        c, d = r.get("likely_range_manwon") or [None, None]
+        # 막대는 줄 너비의 70%까지만 쓰고, 금액 글자는 막대 바로 오른쪽에 둔다 (짧은 막대에서도 글자가 안 넘치게)
+        bars = (f'<div class="cb-line"><div class="cb-bar cb-est" style="width:{est / top * 70:.1f}%"></div>'
+                f'<span class="v-e">추정 {won(est)} 원</span></div>')
+        if dart:
+            bars += (f'<div class="cb-line"><div class="cb-bar cb-dart" style="width:{dart / top * 70:.1f}%"></div>'
+                     f'<span class="v-d">실제 {won(dart)} 원</span></div>')
+        sub = f"예상 범위 {won(c)} ~ {won(d)} 원" if c else ""
+        lines.append(f'<div class="cb-row"><div class="cb-name">{html.escape(r["name"])}<small>{sub}</small></div>'
+                     f'<div class="cb-bars">{bars}</div></div>')
+    head = ("파란 막대 = 국민연금으로 추정한 평균 연봉" + (" · 주황 막대 = 회사가 공시한 실제 평균 연봉 (상장사만)" if any_dart else ""))
+    return f'<div class="cb"><p class="cb-head">{head}</p>{"".join(lines)}</div>'
 
 
 BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
+FIELD_RE = re.compile(r"\s*\(?\s*`[a-z][a-z0-9]*(?:_[a-z0-9]+)+`\s*\)?")
 
 
 def grounded(a, tol, nums, main):
@@ -369,7 +427,9 @@ def show_answer(text, unchecked=()):
       그래서 **…**를 직접 <b>로 바꾼다 (다른 HTML은 이스케이프해서 그대로 글자로 보이게)
     - 숫자 대조: 답 속 금액이 도구 결과에 없으면(옮겨 적다 '1억'을 빠뜨린 경우 등) 경고를 단다
     """
-    safe = BOLD_RE.sub(r"<b>\1</b>", html.escape(text or "", quote=False))
+    # 답에 `avg_income_vs_cap_pct` 같은 도구 필드 이름이 섞여 나온 적이 있어서, 백틱 속 영어 변수 이름은 지운다
+    text = FIELD_RE.sub("", text or "")
+    safe = BOLD_RE.sub(r"<b>\1</b>", html.escape(text, quote=False))
     st.markdown(safe, unsafe_allow_html=True)
     if unchecked:
         shown = ", ".join(f"{a:,}만 원" for a in unchecked[:3])
@@ -383,13 +443,13 @@ def card(label, value, sub="", main=False):
 
 
 def single_cards(r):
-    cards = [card("추정 평균 연봉", r["estimated_salary_text"], "회사 전체 평균", main=True),
-             card("가장 가능성 높은 범위", r["likely_range_text"].replace(" 원", ""), "2곳 중 1곳이 이 안"),
-             card("직원 수", f"{r['members']:,}명", r.get("region") or "")]
+    # 범위는 위의 눈금자(salary_ruler)가 크게 보여주므로 카드에서는 뺀다
+    cards = [card("추정 평균 연봉", r["estimated_salary_text"], "국민연금으로 계산한 회사 전체 평균", main=True)]
     if r.get("dart_actual_salary_text"):
-        cards.append(card("실제 공시 연봉", r["dart_actual_salary_text"], "상장사 사업보고서"))
-    elif r.get("industry_top_pct"):
-        cards.append(card("업종 안 위치", f"상위 {r['industry_top_pct']}%", f"{r['industry_companies']:,}곳 중"))
+        cards.append(card("실제 공시 연봉", r["dart_actual_salary_text"], "회사가 사업보고서에 공개한 값"))
+    cards.append(card("직원 수", f"{r['members']:,}명", r.get("region") or ""))
+    if r.get("industry_top_pct"):
+        cards.append(card("같은 업종 안에서", f"상위 {r['industry_top_pct']}%", f"{r['industry_companies']:,}곳 중 연봉 순위"))
     # 둘째 줄: 정확도 신호등 · 퇴사율 · 인원 변화
     conf, to = r.get("confidence") or {}, r.get("turnover") or {}
     second = []
@@ -443,22 +503,19 @@ def similar_block(r):
         return
     with st.expander(f"💼 비슷한 회사 중 연봉이 더 높은 곳 ({sim['count_higher']:,}곳 중 상위 {len(sim['companies'])}곳)"):
         st.caption(f"기준: {sim['basis']} · {sim['note']}")
-        st.markdown(range_chart(sim["companies"]), unsafe_allow_html=True)
+        st.markdown(compare_chart(sim["companies"]), unsafe_allow_html=True)
 
 
 def show_visuals(kind, rows):
     if not kind:
         return
     if kind == "single":
-        st.markdown(single_cards(rows[0]), unsafe_allow_html=True)
-    chart = range_chart(rows[:10])
+        st.markdown(salary_ruler(rows[0]) + single_cards(rows[0]), unsafe_allow_html=True)
+        similar_block(rows[0])
+        return
+    chart = compare_chart(rows[:10])
     if chart is not None:
         st.markdown(chart, unsafe_allow_html=True)
-        if any(r.get("likely_range_manwon") and r["estimated_salary_manwon"] < r["likely_range_manwon"][0] for r in rows):
-            st.caption("💡 파란 마름모가 막대보다 왼쪽에 있으면: 연봉이 높은 회사는 국민연금 상한 때문에 추정이 실제보다 "
-                       "낮게 나오는 경향이 있어서, 실제 연봉은 막대(예상 범위) 쪽일 가능성이 더 커요.")
-    if kind == "single":
-        similar_block(rows[0])
 
 
 # ---------- 화면 ----------
@@ -616,7 +673,7 @@ with st.container(key="explore"):
                         "<th class='t-num'>직원 수</th><th class='t-num'>추정 연봉(만 원)</th>"
                         "<th class='t-num t-hide'>가능성 높은 범위</th><th class='t-num t-hide'>공시 연봉</th></tr></thead>"
                         f"<tbody>{body}</tbody></table></div>", unsafe_allow_html=True)
-            chart = range_chart(rows[:10])
+            chart = compare_chart(rows[:10])
             if chart is not None:
                 st.markdown(chart, unsafe_allow_html=True)
             c1, c2 = st.columns([4, 1], vertical_alignment="bottom")

@@ -48,6 +48,7 @@ INSTRUCTIONS = (
     "'가장 가능성 높은 범위(2곳 중 1곳)'는 likely_range_text, '넓게 보면(10곳 중 8곳)'은 range_text. "
     "금액은 직접 계산하거나 단위를 바꾸지 말고 *_text 필드('1억 171만 원' 꼴)를 그대로 옮겨 쓴다. "
     "업종 안의 위치는 industry_position_text를 그대로 쓴다. "
+    "답에는 도구 결과의 영어 필드 이름(예: avg_income_vs_cap_pct)을 쓰지 말고 우리말로만 설명한다. "
     f"보험료 상한은 기억으로 쓰지 말고 지금 값(기준소득월액 월 {META['cap_monthly'] / 1e4:,.0f}만 원, 연 {CAP_ANNUAL / 1e4:,.0f}만 원)만 쓴다. "
     "정확도를 물으면 method_and_limits의 accuracy_text 숫자를 꼭 넣는다. "
     "데이터 기준: 추정 연봉은 국민연금 2026년 9월 자료(2025년 소득 반영), 검증·공시 연봉은 DART 2025 사업연도 사업보고서"
