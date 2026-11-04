@@ -58,6 +58,7 @@ INSTRUCTIONS = (
     "'비슷한데 연봉 더 높은 곳', '이직할 만한 곳'을 물으면 similar_companies를 호출한다. "
     "사용자가 지역을 붙여 물으면(예: 삼성전자 부산) get_salary_estimate에 region을 넘기고 region_detail을 전한다. "
     "직원 10명 미만 회사는 small_business_group(같은 지역·업종 묶음의 소규모 사업장 평균)을 함께 전한다. "
+    "shrunk_estimate가 있으면 원래 추정을 먼저 말하고, '참고로 업종 평균을 반영하면 …(검증 안 된 값)'이라고만 덧붙인다. "
     "이 값은 회사 전체 직원의 평균 추정치이며 개인의 연봉이나 직무별 연봉이 아니다. "
     "추정 방법이나 한계를 물으면 method_and_limits를 호출한다."
 )
@@ -236,9 +237,29 @@ def _summary(r):
         "dart_tenure_years": None if pd.isna(r["tenure_years"]) else round(float(r["tenure_years"]), 1),
         "notes": _notes(r),
         "small_business_group": _small_group(r),
+        "shrunk_estimate": _shrunk(r),
         "turnover": _turnover(r),
         "confidence": _confidence(r),
     }
+
+
+CELL_MEANS = filters.cell_means(DATA)
+
+
+def _shrunk(r):
+    """직원 30명 미만 회사의 '업종 평균 반영 값' (참고용·검증 안 됨). 원래 추정은 바꾸지 않는다."""
+    if r["members"] >= filters.SHRINK_UNDER or pd.isna(r["est_corrected"]):
+        return None
+    mean = CELL_MEANS.get((r["sido"], r["group"]))
+    if mean is None or pd.isna(mean):
+        return None
+    val, w = filters.shrink(float(r["est_corrected"]), int(r["members"]), float(mean))
+    return {"value_manwon": _manwon(val), "value_text": _won_text(val), "cell_mean_text": _won_text(mean),
+            "own_weight_pct": round(w * 100),
+            "meaning": (f"참고용·검증 안 됨. 직원이 {int(r['members'])}명뿐이라 몇 사람 소득에 크게 흔들려서, 같은 지역·업종의 "
+                        f"{filters.SHRINK_UNDER}명 미만 회사 평균"
+                        f"({_won_text(mean)})을 {100 - round(w * 100)}% 섞은 값. 작은 회사는 상장사가 거의 없어 이 값이 더 맞는지 "
+                        "확인할 수 없다. 원래 추정을 먼저 말하고, 이 값은 '참고로'만 덧붙인다.")}
 
 
 def _small_group(r):

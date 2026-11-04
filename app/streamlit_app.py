@@ -117,6 +117,8 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .s-card b {{ font-size:18px; letter-spacing:-.5px; color:var(--ink); }}
 .s-card em {{ display:block; font-style:normal; color:var(--muted); font-size:11px; margin-top:2px; }}
 .s-card.main b {{ color:var(--blue); }}
+.s-card.ref {{ background:#fafbfd; border-style:dashed; }}
+.s-card.ref b {{ color:#62758d; }}
 .s-cards3 {{ grid-template-columns:repeat(3,minmax(0,1fr)); }}
 .s-cards2 {{ grid-template-columns:repeat(2,minmax(0,1fr)); }}
 .s-basis {{ background:white; border:1px solid var(--line); border-radius:20px; padding:18px 22px; margin:4px 0 14px; }}
@@ -573,14 +575,20 @@ def show_answer(text, unchecked=()):
                    "아래 카드와 그래프의 숫자는 데이터에서 바로 가져온 값이라 정확해요.", icon="⚠️")
 
 
-def card(label, value, sub="", main=False):
-    return (f'<div class="s-card{" main" if main else ""}"><small>{label}</small><b>{html.escape(str(value))}</b>'
+def card(label, value, sub="", main=False, ref=False):
+    cls = " main" if main else " ref" if ref else ""
+    return (f'<div class="s-card{cls}"><small>{label}</small><b>{html.escape(str(value))}</b>'
             f'{f"<em>{html.escape(sub)}</em>" if sub else ""}</div>')
 
 
 def single_cards(r):
     # 범위는 위의 눈금자(salary_ruler)가 크게 보여주므로 카드에서는 뺀다
     cards = [card("추정 평균 연봉", r["estimated_salary_text"], "국민연금으로 계산한 회사 전체 평균", main=True)]
+    sh = r.get("shrunk_estimate")
+    if sh:  # 30명 미만: 같은 지역·업종 평균 쪽으로 당긴 값 (수축 추정, 참고용)
+        cards.append(card("업종 평균 반영 · 참고용", sh["value_text"],
+                          f"검증 안 됨 · 같은 지역·업종 작은 회사 평균 {sh['cell_mean_text']}을 "
+                          f"{100 - sh['own_weight_pct']}% 섞음", ref=True))
     if r.get("dart_actual_salary_text"):
         cards.append(card("실제 공시 연봉", r["dart_actual_salary_text"], "회사가 사업보고서에 공개한 값"))
     cards.append(card("직원 수", f"{r['members']:,}명", r.get("region") or ""))

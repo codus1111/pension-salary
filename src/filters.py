@@ -111,6 +111,33 @@ def small_summary(data, groups=(), regions=(), small=10, region_sites=None):
             "middle50_manwon": [int(round(q25)), int(round(q75))]}
 
 
+SHRINK_K = 10      # '사람 10명어치' 무게를 업종 평균에 준다: 직원 10명이면 회사 값과 업종 평균을 반반
+SHRINK_UNDER = 20  # 20명 이상은 원래 결과만 보여준다 (사용자와 정한 기준)
+
+
+def cell_means(data):
+    """(시·도, 업종 묶음)마다 SHRINK_UNDER(20명) 미만 회사의 일하는 사람 기준 평균 추정 연봉. 수축 추정의 당기는 쪽.
+
+    처음엔 모든 회사로 평균을 냈더니 큰 회사 직원이 대부분이라, 작은 회사를 큰 회사 수준으로 끌어올렸다
+    (시즈닝게임즈 3,452만 → 5,045만, 경기 IT 평균 6,318만). 비슷한 규모끼리의 평균으로 바꿨다.
+    """
+    d = data[(data["members"] > 0) & (data["members"] < SHRINK_UNDER)]
+    w = d["members"].astype(float)
+    g = (d.assign(_w=w, _x=d["est_corrected"] * w).groupby(["sido", "group"], observed=True)[["_x", "_w"]].sum())
+    return (g["_x"] / g["_w"]).to_dict()
+
+
+def shrink(est, members, cell_mean, k=SHRINK_K):
+    """수축 추정(참고용·검증 안 됨): 직원이 적을수록 같은 지역·업종 평균 쪽으로 당긴다.
+
+    값 = (직원 수 × 회사 추정 + k × 업종 평균) ÷ (직원 수 + k). 3명이면 업종 평균 쪽 77%, 10명이면 반반, 19명이면 34%.
+    작은 회사는 몇 사람 소득에 크게 흔들려서 흔들림은 줄지만, 10명 미만 상장사가 거의 없어 더 정확해지는지는
+    확인할 수 없다. 작지만 연봉이 아주 높은 회사는 오히려 끌려 내려갈 수 있다. 그래서 원래 추정을 바꾸지 않고 따로 보여준다.
+    """
+    w = members / (members + k)
+    return w * est + (1 - w) * cell_mean, w
+
+
 def to_rows(top):
     """그래프(range_chart)가 쓰는 꼴로 바꾼다. 도구 결과와 같은 키를 쓴다."""
     man = lambda v: None if pd.isna(v) else int(round(v / 1e4))  # noqa: E731
