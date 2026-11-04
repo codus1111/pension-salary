@@ -23,11 +23,14 @@ from mcp.server.mcpserver import MCPServer
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 from match import to_hangul  # noqa: E402
+from brands import to_legal  # noqa: E402
+import filters  # noqa: E402
 
 # 분석한 컴퓨터에는 data/processed, 웹 배포(저장소)에는 작게 만든 data/app만 있다 (src/make_app_data.py)
 DATA_DIR = Path(os.environ["PENSION_DATA_DIR"]) if os.environ.get("PENSION_DATA_DIR") else (
     ROOT / "data/processed" if (ROOT / "data/processed/serving.parquet").exists() else ROOT / "data/app")
 DATA = pd.read_parquet(DATA_DIR / "serving.parquet")
+DATA["group"] = filters.add_groups(DATA)  # 업종 1,232가지 → 14개 묶음 (소규모 사업장 평균·웹 필터용)
 META = json.loads((DATA_DIR / "serving_meta.json").read_text(encoding="utf-8"))
 CAP_ANNUAL = META["cap_monthly"] * 12
 
@@ -42,6 +45,7 @@ INSTRUCTIONS = (
     "'가장 가능성 높은 범위(2곳 중 1곳)'는 likely_range_text, '넓게 보면(10곳 중 8곳)'은 range_text. "
     "금액은 직접 계산하거나 단위를 바꾸지 말고 *_text 필드('1억 171만 원' 꼴)를 그대로 옮겨 쓴다. "
     "업종 안의 위치는 industry_position_text를 그대로 쓴다. "
+    "직원 10명 미만 회사는 small_business_group(같은 지역·업종 묶음의 소규모 사업장 평균)을 함께 전한다. "
     "이 값은 회사 전체 직원의 평균 추정치이며 개인의 연봉이나 직무별 연봉이 아니다. "
     "추정 방법이나 한계를 물으면 method_and_limits를 호출한다."
 )
@@ -144,7 +148,20 @@ def _summary(r):
         "dart_actual_salary_text": _won_text(r["dart_avg_salary"]),
         "dart_tenure_years": None if pd.isna(r["tenure_years"]) else round(float(r["tenure_years"]), 1),
         "notes": _notes(r),
+        "small_business_group": _small_group(r),
     }
+
+
+def _small_group(r):
+    """10명 미만이면 한 곳만 보면 흔들리니, 같은 업종 묶음·지역의 소규모 사업장 평균을 같이 준다."""
+    if r["members"] >= 10:
+        return None
+    s = filters.small_summary(DATA, [r["group"]], [r["sido"]] if not pd.isna(r["sido"]) else [])
+    if not s:
+        return None
+    return {**s, "avg_text": _won_text(s["avg_manwon"] * 1e4),
+            "meaning": f"{_text(r['sido']) or '전국'}의 '{r['group']}' 업종 묶음에서 직원 10명 미만 사업장 {s['count']:,}곳을 "
+                       "하나로 묶은 평균(일하는 사람 기준). 이 회사 하나의 추정보다 안정적이니 함께 전한다."}
 
 
 @mcp.tool()
@@ -155,7 +172,7 @@ def search_company(query: str, limit: int = 8) -> list[dict]:
     가입자 10명 미만 회사는 뒤로 미룬다. 영문 약자는 한글로 바꿔 찾는다(SK하이닉스 → 에스케이하이닉스).
     브랜드명이 아니라 법인명으로 등록돼 있다(토스 → 비바리퍼블리카). 결과의 company_key를 다른 도구에 넘긴다.
     """
-    k = _key(query)
+    k = _key(to_legal(query) or query)  # 브랜드명이면 법인명으로 바꿔 찾는다 (토스 → 비바리퍼블리카)
     if not k:
         return []
     hit = DATA[DATA["key_nm"].str.contains(k, regex=False)].copy()

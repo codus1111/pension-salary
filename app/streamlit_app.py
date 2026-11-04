@@ -64,6 +64,9 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .s-note {{ font-size:11px; color:#4f6e91 !important; margin:10px 0 0 18px; }}
 .st-key-workspace {{ background:white; border:1px solid var(--line); border-radius:25px; padding:28px 30px;
                     margin-top:22px; box-shadow:0 10px 40px #7c9abb0a; }}
+.st-key-explore {{ background:white; border:1px solid var(--line); border-radius:25px; padding:28px 30px;
+                  margin:4px 0 18px; box-shadow:0 10px 40px #7c9abb0a; }}
+@media (max-width:640px) {{ .st-key-explore {{ padding:22px 16px; }} }}
 .s-h2 {{ font-size:21px; font-weight:750; letter-spacing:-.7px; margin:0 0 4px; color:var(--ink); }}
 .s-caption {{ font-size:13px; color:var(--muted) !important; margin:0; }}
 [class*="st-key-sg"] button {{ background:#f5f9fe; border:1px solid #e5eef9; border-radius:16px; min-height:96px;
@@ -89,6 +92,10 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .s-card b {{ font-size:18px; letter-spacing:-.5px; color:var(--ink); }}
 .s-card em {{ display:block; font-style:normal; color:var(--muted); font-size:11px; margin-top:2px; }}
 .s-card.main b {{ color:var(--blue); }}
+.s-small {{ background:#f5f9fe; border:1px solid #e5eef9; border-radius:16px; padding:14px 16px; margin:6px 0 12px; }}
+.s-small > small {{ color:#4572a9; font-size:12px; font-weight:650; }}
+.s-small > em {{ display:block; font-style:normal; color:var(--muted); font-size:11px; margin-top:6px; }}
+@media (max-width:640px) {{ .s-small .s-cards {{ grid-template-columns:1fr !important; }} }}
 .s-foot {{ display:flex; justify-content:space-between; gap:16px; flex-wrap:wrap; color:#6d8098; font-size:11px;
            padding:22px 4px 4px; }}
 .s-foot a {{ color:#48617f !important; }}
@@ -158,6 +165,9 @@ def load_agent():
 
 
 agent, provider = load_agent()
+
+
+filters, DATA = agent.tools.filters, agent.tools.DATA  # 에이전트 도구와 같은 표 (업종 묶음 열 포함)
 
 
 # ---------- 답변 아래 그림: 도구 결과에서 회사별 추정값·범위를 모아 그린다 ----------
@@ -252,7 +262,7 @@ if "history" not in st.session_state:
     st.session_state["messages"] = []  # 화면에 보이는 대화
 
 nav()
-question = None
+question = st.session_state.pop("pending_q", None)  # 아래 '조건으로 찾기'에서 누른 회사 질문
 with st.container(key="hero"):
     hero_copy()
     with st.form("search", border=False, clear_on_submit=True):
@@ -312,6 +322,91 @@ with st.container(key="workspace"):
 
     st.markdown('<p class="s-caption" style="font-size:11px;margin-top:14px">회사 전체의 평균 추정치예요. '
                 '신입·직무·개인 연봉과 다르며, 답변의 오차 범위도 함께 확인해 주세요.</p>', unsafe_allow_html=True)
+
+def small_card(s, where):
+    """10명 미만 소규모 사업장을 하나로 묶은 평균 카드."""
+    return ('<div class="s-small"><small>🏠 소규모 사업장 (직원 10명 미만) · ' + html.escape(where) + '</small>'
+            f'<div class="s-cards" style="grid-template-columns:repeat(3,minmax(0,1fr))">'
+            + card("평균 추정 연봉", f"{s['avg_manwon']:,}만 원", "일하는 사람 기준 평균", main=True)
+            + card("사업장 수", f"{s['count']:,}곳", f"일하는 사람 {s['workers']:,}명")
+            + card("중간값", f"{s['median_manwon']:,}만 원", "사업장 한가운데 값")
+            + '</div><em>작은 사업장은 한 곳씩 보면 오차가 커서 같은 조건끼리 묶어 평균을 냈어요.</em></div>')
+
+
+def ask_about(name):
+    st.session_state["pending_q"] = f"{name} 평균 연봉 자세히 알려줘"
+    st.toast("위쪽 대화 칸에서 AI가 답하고 있어요 ⬆️")
+    st.rerun()
+
+
+# ---------- 조건으로 찾기: AI 없이 데이터에서 바로 (무료·즉시) ----------
+with st.container(key="explore"):
+    st.markdown('<p class="s-h2">회사 직접 찾기</p><p class="s-caption">AI를 거치지 않고 데이터에서 바로 찾아요. '
+                '브랜드 이름(토스, 배민, 스타벅스 등)으로도 찾을 수 있어요.</p>', unsafe_allow_html=True)
+    by_name, by_filter = st.tabs(["🔎 이름으로 찾기", "🎛️ 조건으로 찾기"])
+
+    with by_name:
+        name_q = st.text_input("회사 이름", placeholder="예: 토스, 배민, 현대차, 카카오", label_visibility="collapsed")
+        if name_q.strip():
+            hits = agent.tools.search_company(name_q, limit=8)
+            if not hits:
+                st.info("찾는 회사가 없어요. 정식 회사 이름(법인명)으로도 찾아보세요.")
+            for j, h in enumerate(hits):
+                c1, c2 = st.columns([5, 1], vertical_alignment="center")
+                tiny = h["members"] < 10
+                c1.markdown(f"**{h['name']}**{' `소규모`' if tiny else ''}  \n<span class='s-caption'>"
+                            f"{h['industry'] if filters.group_of(h['industry']) != filters.UNKNOWN else '업종 정보 없음'}"
+                            f" · {h['region'] or '-'} · {h['members']:,}명"
+                            f"{' · 상장사' if h['listed'] else ''}</span>", unsafe_allow_html=True)
+                if c2.button("AI에게 묻기", key=f"nm{j}", use_container_width=True):
+                    ask_about(h["name"])
+            # 10명 미만은 한 곳만 보면 오차가 커서, 같은 업종 묶음·지역의 소규모 사업장 평균을 같이 보여준다
+            small = next((h for h in hits if h["members"] < 10), None)
+            if small:
+                g = filters.group_of(small["industry"])
+                s = filters.small_summary(DATA, [g], [small["region"]] if small["region"] else [])
+                if s:
+                    st.markdown(small_card(s, f"{small['region'] or '전국'} · {g}"), unsafe_allow_html=True)
+
+    with by_filter:
+        f1, f2 = st.columns(2)
+        groups = f1.multiselect("업종", filters.GROUP_NAMES, placeholder="전체 업종")
+        regions = f2.multiselect("지역", sorted(DATA["sido"].dropna().unique()), placeholder="전체 지역")
+        f3, f4 = st.columns(2)
+        size = f3.selectbox("회사 규모", list(filters.SIZES))
+        salary = f4.select_slider("추정 연봉 (만 원)", options=[0, 3000, 4000, 5000, 6000, 7000, 8000, 10000, 20000],
+                                  value=(0, 20000), format_func=lambda v: "제한 없음" if v in (0, 20000) else f"{v:,}")
+        f5, f6 = st.columns(2)
+        growing = f5.checkbox("직원이 늘고 있는 회사만", help="이번 달 입사자가 퇴사자보다 많은 회사")
+        listed = f6.checkbox("상장사만", help="실제 공시 연봉과 같이 볼 수 있어요")
+        if size in ("전체", "50명 미만") and not listed:
+            s = filters.small_summary(DATA, groups, regions)
+            if s:
+                st.markdown(small_card(s, " · ".join(regions or ["전국"]) + " · " + (", ".join(groups) or "전체 업종")),
+                            unsafe_allow_html=True)
+        n, top = filters.find(DATA, groups, regions, size,
+                              (salary[0] or None, None if salary[1] == 20000 else salary[1]), growing, listed)
+        st.caption(f"조건에 맞는 회사 {n:,}곳 (직원 10명 이상) · 추정 연봉 높은 순 상위 {len(top)}곳")
+        if groups and filters.UNKNOWN not in groups:
+            st.caption("💡 배민·당근처럼 업종이 비어 있는 큰 회사도 있어요. 안 보이면 '업종 정보 없음'도 골라 보세요.")
+        if n:
+            rows = filters.to_rows(top)
+            table = pd.DataFrame([{
+                "회사": r["name"], "업종": r["industry"], "지역": r["region"], "직원 수": r["members"],
+                "추정 연봉(만 원)": r["estimated_salary_manwon"],
+                "가능성 높은 범위": f"{r['likely_range_manwon'][0]:,} ~ {r['likely_range_manwon'][1]:,}",
+                "공시 연봉(만 원)": f"{r['dart_actual_salary_manwon']:,}" if r["dart_actual_salary_manwon"] else "-",
+            } for r in rows])
+            st.dataframe(table, hide_index=True, use_container_width=True,
+                         column_config={"직원 수": st.column_config.NumberColumn(format="localized"),
+                                        "추정 연봉(만 원)": st.column_config.NumberColumn(format="localized")})
+            chart = range_chart(rows[:10])
+            if chart is not None:
+                st.altair_chart(chart, use_container_width=True)
+            c1, c2 = st.columns([4, 1], vertical_alignment="bottom")
+            pick = c1.selectbox("자세히 볼 회사", [r["name"] for r in rows])
+            if c2.button("AI에게 묻기", key="pick", use_container_width=True):
+                ask_about(pick)
 
 with st.expander("이 데이터는 어떻게 해석하면 되나요?"):
     st.markdown("**국민연금 공개 데이터로 추정하고, DART 공시로 검증해요.**\n\n"
