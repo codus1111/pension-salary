@@ -386,13 +386,24 @@ if secret("GEMINI_API_KEY"):
     os.environ["GEMINI_API_KEY"] = secret("GEMINI_API_KEY")
 
 
-@st.cache_resource(show_spinner="데이터를 불러오는 중이에요 (처음 한 번만, 몇 초 걸려요)")
-def load_agent():
+def code_version():
+    """src/ 코드가 마지막으로 바뀐 시각. 이 값이 바뀌면 아래 캐시를 새로 만든다."""
+    return max(p.stat().st_mtime for p in (ROOT / "src").glob("*.py"))
+
+
+# 배포 후 화면 코드만 새것이 되고, 캐시에 남은 옛 도구 코드(filters 등)와 섞여 KeyError가 난 적이 있어서,
+# 코드 버전을 캐시 키로 쓰고 바뀌면 모듈을 다시 읽는다. max_entries=1: 옛 데이터를 메모리에 두 벌 두지 않게
+@st.cache_resource(show_spinner="데이터를 불러오는 중이에요 (처음 한 번만, 몇 초 걸려요)", max_entries=1)
+def load_agent(version):
+    import importlib
+    for name in ("brands", "filters", "mcp_server", "agent"):  # 서로 import하는 순서대로
+        if name in sys.modules:
+            importlib.reload(sys.modules[name])
     import agent  # 51만 개 회사 데이터를 불러온다
     return agent, agent.GeminiProvider()
 
 
-agent, provider = load_agent()
+agent, provider = load_agent(code_version())
 
 
 filters, DATA, REGION = agent.tools.filters, agent.tools.DATA, agent.tools.REGION_SITES  # 에이전트 도구와 같은 표
@@ -476,6 +487,8 @@ def compare_chart(rows, small=None, small_where=""):
         return None
     vals = [v for r in rows for v in (*(r.get("likely_range_manwon") or []), r["estimated_salary_manwon"],
                                       r.get("dart_actual_salary_manwon")) if v]
+    if small and "middle50_manwon" not in small:  # 옛 코드가 만든 결과여도 화면이 깨지지 않게
+        small = {**small, "middle50_manwon": [small["avg_manwon"], small["avg_manwon"]]}
     if small:
         vals += [*small["middle50_manwon"], small["avg_manwon"]]
     span = max(vals) - min(vals) or 1000
@@ -496,7 +509,8 @@ def compare_chart(rows, small=None, small_where=""):
     for i, r in enumerate(rows, 1):
         est, dart = r["estimated_salary_manwon"], r.get("dart_actual_salary_manwon")
         c, d = r.get("likely_range_manwon") or [None, None]
-        info = " · ".join(x for x in (r.get("region"), f"{r['members']:,}명" if r.get("members") else None) if x)
+        region = r.get("region") if isinstance(r.get("region"), str) else None  # 지역이 빈 회사(NaN)도 있다
+        info = " · ".join(x for x in (region, f"{r['members']:,}명" if r.get("members") else None) if x)
         body.append(
             f"<tr><td class='gt-rank'>{i}</td><td class='gt-name'>{html.escape(r['name'])}<small>{info}</small></td>"
             f"<td class='gt-num'><b class='v-e'>{won(est)}</b></td>"
@@ -741,7 +755,8 @@ def small_card(s, where):
             f'<div class="s-cards" style="grid-template-columns:repeat(3,minmax(0,1fr))">'
             + card("평균 추정 연봉", f"{s['avg_manwon']:,}만 원", "일하는 사람 기준 평균", main=True)
             + card("사업장 수", f"{s['count']:,}곳", f"일하는 사람 {s['workers']:,}명")
-            + card("가운데 50% 사업장", f"{won(s['middle50_manwon'][0])} ~ {won(s['middle50_manwon'][1])}", "작은 곳끼리도 차이가 커요")
+            + card("가운데 50% 사업장", " ~ ".join(won(v) for v in s.get("middle50_manwon", [s["avg_manwon"]] * 2)),
+                   "작은 곳끼리도 차이가 커요")
             + '</div><em>작은 사업장은 한 곳씩 보면 오차가 커서 같은 조건끼리 묶어 평균을 냈어요.</em></div>')
 
 

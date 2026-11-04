@@ -141,7 +141,8 @@ def shrink(est, members, cell_mean, k=SHRINK_K):
 def to_rows(top):
     """그래프(range_chart)가 쓰는 꼴로 바꾼다. 도구 결과와 같은 키를 쓴다."""
     man = lambda v: None if pd.isna(v) else int(round(v / 1e4))  # noqa: E731
-    return [{"company_key": r.company_key, "name": r.sample_nm, "industry": r.intp_nm, "region": r.sido,
+    text = lambda v: None if pd.isna(v) else v  # noqa: E731  빈 지역·업종(NaN)은 None으로
+    return [{"company_key": r.company_key, "name": r.sample_nm, "industry": text(r.intp_nm), "region": text(r.sido),
              "members": int(r.members), "estimated_salary_manwon": man(r.est_corrected),
              "range_manwon": [man(r.range_low), man(r.range_high)],
              "likely_range_manwon": [man(r.range50_low), man(r.range50_high)],
