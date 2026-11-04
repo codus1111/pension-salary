@@ -29,6 +29,14 @@ SUGGESTIONS = [
     ("업종별로 살펴보기", "증권업계에서 연봉 높은 회사 어디야?"),
 ]
 
+# 움직임 순서: n번째 줄은 조금씩 늦게 (줄이 나타나고 → 범위 막대가 늘어나고 → 점이 튀어나온다)
+MOTION_DELAYS = "\n".join(
+    f".gt tbody tr:nth-child({i}) {{ animation-delay:{(i - 1) * 0.05:.2f}s; }} "
+    f".gt tbody tr:nth-child({i}) .gt-band {{ animation-delay:{0.15 + (i - 1) * 0.05:.2f}s; }} "
+    f".gt tbody tr:nth-child({i}) .gt-est, .gt tbody tr:nth-child({i}) .gt-dart {{ animation-delay:{0.65 + (i - 1) * 0.05:.2f}s; }} "
+    f".s-cards .s-card:nth-child({i}), .hc-bar:nth-child({i}) span {{ animation-delay:{(i - 1) * 0.06:.2f}s; }}"
+    for i in range(1, 25))
+
 # 디자인: 연한 하늘색 배경, 그림이 있는 큰 첫 화면, 둥근 검색창, 흰 카드
 st.markdown(f"""<style>
 :root {{ --ink:#192c49; --muted:#62758d; --blue:#0868ec; --line:#e1eaf5; }}
@@ -165,6 +173,65 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .sr-dart {{ background:#e07a16; }}
 .sr-dart span {{ background:#e07a16; bottom:auto; top:34px; }}
 .sr-note {{ font-size:13px !important; color:#3a5170 !important; margin:30px 0 0; line-height:1.7; }}
+/* 여러 회사: 표 + 간트 차트 */
+.gt {{ background:white; border:1px solid var(--line); border-radius:16px; padding:14px 16px 6px; margin:10px 0 8px; overflow-x:auto; }}
+.gt-legend {{ display:flex; flex-wrap:wrap; gap:4px 16px; font-size:12px; color:#3a5170; margin:0 0 6px 4px; }}
+.gt-legend span {{ display:inline-flex; align-items:center; gap:6px; }}
+.gt-legend .gt-unit {{ margin-left:auto; color:#8193a8; }}
+.k-gband {{ display:inline-block; width:22px; height:10px; background:#a9cbf7; border-radius:3px; }}
+.k-gest {{ display:inline-block; width:10px; height:10px; background:#0868ec; border-radius:50%; }}
+.k-gdart {{ display:inline-block; width:4px; height:14px; background:#e07a16; border-radius:2px; }}
+.gt table {{ width:100%; border-collapse:collapse; font-size:13px; }}
+.gt th {{ text-align:left; color:#62758d; font-weight:600; font-size:12px; padding:8px 8px; border:0; border-bottom:1px solid var(--line); }}
+.gt td {{ padding:9px 8px; border:0; border-top:1px solid #f0f4f9; vertical-align:middle; }}
+.gt tbody tr:hover td {{ background:#f7faff; }}
+.gt-rank {{ width:30px; color:#8193a8; font-variant-numeric:tabular-nums; text-align:center; }}
+.gt-name {{ font-weight:600; color:var(--ink); min-width:140px; }}
+.gt-name small, .gt-num small {{ display:block; font-weight:400; font-size:11px; color:#8193a8; }}
+.gt-num {{ text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }}
+.gt-num .v-e {{ color:#0868ec; }}
+.gt-num .v-d {{ color:#d9731a; }}
+.gt-none {{ color:#b6c2d1; }}
+.gt th.gt-chart, .gt td.gt-chart {{ width:38%; min-width:220px; padding-left:18px; padding-right:22px; }}
+.gt-ticks {{ position:relative; height:16px; }}
+.gt-ticks span {{ position:absolute; transform:translateX(-50%); font-size:11px; font-weight:400; color:#8193a8; white-space:nowrap; }}
+.gt-track {{ position:relative; height:18px; background:repeating-linear-gradient(90deg,#f3f6fa 0 1px,transparent 1px 20%); }}
+.gt-band {{ position:absolute; top:3px; height:12px; background:#a9cbf7; border-radius:6px; }}
+.gt-est {{ position:absolute; top:2px; width:14px; height:14px; margin-left:-7px; background:#0868ec; border:2px solid white; border-radius:50%; }}
+.gt-dart {{ position:absolute; top:-2px; width:4px; height:22px; margin-left:-2px; background:#e07a16; border-radius:2px; }}
+.gt-small td {{ background:#f7f9fc; }}
+.gt-small .gt-rank {{ font-size:11px; font-weight:700; color:#4572a9; }}
+.gt-track-small .gt-band {{ background:#d5dce6; }}
+.gt-track-small .gt-est {{ background:#62758d; }}
+@media (max-width:640px) {{
+  /* 휴대폰: 표 대신 회사 한 곳 = 카드 한 줄 (이름·금액 위, 범위 막대 아래) */
+  .gt {{ padding:10px 12px 4px; }}
+  .gt .t-hide, .gt thead {{ display:none; }}
+  .gt table, .gt tbody {{ display:block; }}
+  .gt tr {{ display:grid; grid-template-columns:24px 1fr auto auto; gap:2px 10px; align-items:center;
+            padding:10px 2px; border-top:1px solid #f0f4f9; }}
+  .gt td {{ display:block; padding:0; border:0; background:none !important; }}
+  .gt-name {{ min-width:0; }}
+  .gt th.gt-chart, .gt td.gt-chart {{ grid-column:1 / -1; min-width:0; width:auto; padding:8px 4px 2px; }}
+  .gt-small {{ background:#f7f9fc; border-radius:10px; }}
+}}
+/* 움직임: 그려지는 순서대로 눈이 따라가게 (줄 → 막대 → 점). 움직임을 꺼둔 사용자에게는 나오지 않는다 */
+@keyframes s-rise {{ from {{ opacity:0; transform:translateY(8px); }} to {{ opacity:1; transform:none; }} }}
+@keyframes s-grow-x {{ from {{ transform:scaleX(0); }} to {{ transform:scaleX(1); }} }}
+@keyframes s-grow-y {{ from {{ transform:scaleY(0); }} to {{ transform:scaleY(1); }} }}
+@keyframes s-pop {{ 0% {{ opacity:0; transform:scale(0); }} 70% {{ opacity:1; transform:scale(1.25); }} 100% {{ transform:scale(1); }} }}
+@keyframes s-fade {{ from {{ opacity:0; }} to {{ opacity:1; }} }}
+@media (prefers-reduced-motion:no-preference) {{
+  .gt tbody tr {{ animation:s-rise .45s ease-out both; }}
+  .gt-band, .sr-band, .cb-bar {{ transform-origin:left center; animation:s-grow-x .7s cubic-bezier(.2,.7,.2,1) both; }}
+  .gt-est, .gt-dart {{ animation:s-pop .45s ease-out both; }}
+  .sr-mark {{ animation:s-pop .5s ease-out .65s both; }}
+  .sr-note, .cb-label {{ animation:s-fade .5s ease-out .8s both; }}
+  .s-card {{ animation:s-rise .45s ease-out both; }}
+  .hc-bar span {{ transform-origin:bottom center; animation:s-grow-y .6s cubic-bezier(.2,.7,.2,1) both; }}
+  .s-user, [class*="st-key-answer"] {{ animation:s-rise .35s ease-out both; }}
+}}
+{MOTION_DELAYS}
 /* 여러 회사: 가로 막대 */
 .cb {{ background:white; border:1px solid var(--line); border-radius:16px; padding:16px 20px 10px; margin:10px 0 8px; }}
 .cb-head {{ font-size:12px !important; color:#62758d !important; margin:0 0 10px; }}
@@ -356,6 +423,8 @@ def won(m):
     """만 원 단위 정수 → '1억 78만', '9,276만'."""
     if m is None:
         return "-"
+    if not m:
+        return "0"
     eok, man = divmod(int(m), 10_000)
     return (f"{eok}억 {man:,}만" if man else f"{eok}억") if eok else f"{man:,}만"
 
@@ -393,35 +462,60 @@ def salary_ruler(r):
             f'<p class="sr-note">{note}</p></div>')
 
 
-def compare_chart(rows):
-    """여러 회사: 누구나 읽는 가로 막대(0부터). 막대 끝에 금액을 쓰고, 실제 공시가 있으면 주황 막대를 바로 아래에."""
+def compare_chart(rows, small=None, small_where=""):
+    """여러 회사: 표 + 간트 차트. 한 줄이 회사 하나.
+
+    막대그래프로는 "숫자가 많아 읽기 어렵다"는 의견이 있어서, 숫자는 표 칸에 글자로 두고, 맨 오른쪽 칸에는
+    모든 회사를 같은 눈금 위에 범위 막대(간트 차트처럼)로 그려 회사끼리 위치를 바로 비교하게 했다.
+    small: filters.small_summary 결과. 있으면 맨 아래에 '기타: 10명 미만 사업장' 한 줄을 회사처럼 넣는다.
+    """
     rows = sorted([r for r in rows if r.get("estimated_salary_manwon")], key=lambda r: -r["estimated_salary_manwon"])
     if not rows:
         return None
-    top = max(max(r["estimated_salary_manwon"], (r.get("likely_range_manwon") or [0, 0])[1] or 0,
-                  r.get("dart_actual_salary_manwon") or 0) for r in rows)
-    any_dart = any(r.get("dart_actual_salary_manwon") for r in rows)
-    # 막대는 줄 너비의 62%까지만 쓰고, 금액 글자는 그 오른쪽에 둔다 (짧은 막대에서도 글자가 안 넘치게)
-    pct = lambda v: v / top * 62  # noqa: E731
-    lines = []
-    for r in rows:
+    vals = [v for r in rows for v in (*(r.get("likely_range_manwon") or []), r["estimated_salary_manwon"],
+                                      r.get("dart_actual_salary_manwon")) if v]
+    if small:
+        vals += [*small["middle50_manwon"], small["avg_manwon"]]
+    span = max(vals) - min(vals) or 1000
+    step = next(s for s in (500, 1000, 2000, 5000, 10000) if span / s <= 5)
+    lo, hi = (min(vals) // step) * step, -(-max(vals) // step) * step
+    pos = lambda v: (v - lo) / (hi - lo) * 100  # noqa: E731
+    ticks = "".join(f'<span style="left:{pos(t):.1f}%">{won(t)}</span>' for t in range(lo, hi + 1, step))
+
+    def gantt(band, mid, dart=None, cls=""):
+        a, b = band
+        out = (f'<div class="gt-track{cls}"><span class="gt-band" style="left:{pos(a):.1f}%;width:{pos(b) - pos(a):.1f}%"></span>'
+               f'<span class="gt-est" style="left:{pos(mid):.1f}%"></span>')
+        if dart:
+            out += f'<span class="gt-dart" style="left:{pos(dart):.1f}%"></span>'
+        return out + "</div>"
+
+    body = []
+    for i, r in enumerate(rows, 1):
         est, dart = r["estimated_salary_manwon"], r.get("dart_actual_salary_manwon")
         c, d = r.get("likely_range_manwon") or [None, None]
-        # 막대 끝만 보면 평균 하나만 보여서, 예상 범위를 막대 위에 연한 띠로 겹쳐 그리고 글자로도 적는다
-        band = (f'<div class="cb-band" style="left:{pct(c):.1f}%;width:{pct(d) - pct(c):.1f}%"></div>' if c else "")
-        end = max(est, d or 0)
-        label = f'<b>추정 {won(est)} 원</b>' + (f'<em>범위 {won(c)} ~ {won(d)} 원</em>' if c else "")
-        bars = (f'<div class="cb-line"><div class="cb-bar cb-est" style="width:{pct(est):.1f}%"></div>{band}'
-                f'<span class="cb-label v-e" style="left:calc({pct(end):.1f}% + 10px)">{label}</span></div>')
-        if dart:
-            bars += (f'<div class="cb-line cb-line-d"><div class="cb-bar cb-dart" style="width:{pct(dart):.1f}%"></div>'
-                     f'<span class="cb-label v-d" style="left:calc({pct(dart):.1f}% + 10px)"><b>실제 {won(dart)} 원</b></span></div>')
-        lines.append(f'<div class="cb-row"><div class="cb-name">{html.escape(r["name"])}</div>'
-                     f'<div class="cb-bars">{bars}</div></div>')
-    head = ('<span><i class="k-bar"></i>추정 평균 연봉 (국민연금)</span>'
-            '<span><i class="k-band"></i>예상 범위 (실제 연봉이 있을 가능성이 큰 구간)</span>'
-            + ('<span><i class="k-dbar"></i>실제 평균 연봉 (회사 공시, 상장사만)</span>' if any_dart else ""))
-    return f'<div class="cb"><div class="cb-head">{head}</div>{"".join(lines)}</div>'
+        info = " · ".join(x for x in (r.get("region"), f"{r['members']:,}명" if r.get("members") else None) if x)
+        body.append(
+            f"<tr><td class='gt-rank'>{i}</td><td class='gt-name'>{html.escape(r['name'])}<small>{info}</small></td>"
+            f"<td class='gt-num'><b class='v-e'>{won(est)}</b></td>"
+            f"<td class='gt-num t-hide'>{f'{won(c)} ~ {won(d)}' if c else '-'}</td>"
+            f"<td class='gt-num'>{f'<b class=v-d>{won(dart)}</b>' if dart else '<span class=gt-none>-</span>'}</td>"
+            f"<td class='gt-chart'>{gantt((c, d), est, dart) if c else ''}</td></tr>")
+    if small:
+        a, b = small["middle50_manwon"]
+        body.append(
+            f"<tr class='gt-small'><td class='gt-rank'>기타</td><td class='gt-name'>10명 미만 사업장 {small['count']:,}곳"
+            f"<small>{html.escape(small_where)} · 일하는 사람 {small['workers']:,}명</small></td>"
+            f"<td class='gt-num'><b>{won(small['avg_manwon'])}</b><small>평균</small></td>"
+            f"<td class='gt-num t-hide'>{won(a)} ~ {won(b)}<small>가운데 50% 사업장</small></td>"
+            f"<td class='gt-num'><span class='gt-none'>-</span></td>"
+            f"<td class='gt-chart'>{gantt((a, b), small['avg_manwon'], cls=' gt-track-small')}</td></tr>")
+    legend = ('<div class="gt-legend"><span><i class="k-gband"></i>예상 범위</span><span><i class="k-gest"></i>추정</span>'
+              '<span><i class="k-gdart"></i>실제 공시 (상장사만)</span><span class="gt-unit">금액 단위: 원</span></div>')
+    return (f'<div class="gt">{legend}<table><thead><tr><th></th><th>회사</th><th class="gt-num">추정 연봉</th>'
+            f'<th class="gt-num t-hide">예상 범위</th><th class="gt-num">실제 (공시)</th>'
+            f'<th class="gt-chart"><div class="gt-ticks">{ticks}</div></th></tr></thead>'
+            f'<tbody>{"".join(body)}</tbody></table></div>')
 
 
 BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
@@ -639,7 +733,7 @@ def small_card(s, where):
             f'<div class="s-cards" style="grid-template-columns:repeat(3,minmax(0,1fr))">'
             + card("평균 추정 연봉", f"{s['avg_manwon']:,}만 원", "일하는 사람 기준 평균", main=True)
             + card("사업장 수", f"{s['count']:,}곳", f"일하는 사람 {s['workers']:,}명")
-            + card("중간값", f"{s['median_manwon']:,}만 원", "사업장 한가운데 값")
+            + card("가운데 50% 사업장", f"{won(s['middle50_manwon'][0])} ~ {won(s['middle50_manwon'][1])}", "작은 곳끼리도 차이가 커요")
             + '</div><em>작은 사업장은 한 곳씩 보면 오차가 커서 같은 조건끼리 묶어 평균을 냈어요.</em></div>')
 
 
@@ -691,33 +785,19 @@ with st.container(key="explore"):
         f5, f6 = st.columns(2)
         growing = f5.checkbox("직원이 늘고 있는 회사만", help="이번 달 입사자가 퇴사자보다 많은 회사")
         listed = f6.checkbox("상장사만", help="실제 공시 연봉과 같이 볼 수 있어요")
-        if size in ("전체", "50명 미만") and not listed:
-            s = filters.small_summary(DATA, groups, regions, region_sites=REGION)
-            if s:
-                st.markdown(small_card(s, " · ".join(regions or ["전국"]) + " · " + (", ".join(groups) or "전체 업종")),
-                            unsafe_allow_html=True)
+        # 10명 미만 사업장은 한 곳씩 보면 흔들려서, 같은 조건끼리 묶어 표 맨 아래 '기타' 한 줄로 넣는다
+        small = (filters.small_summary(DATA, groups, regions, region_sites=REGION)
+                 if size in ("전체", "50명 미만") and not listed and not growing else None)
+        where = " · ".join(regions or ["전국"]) + " · " + (", ".join(groups) or "전체 업종")
         n, top = filters.find(DATA, groups, regions, size,
                               (salary[0] or None, None if salary[1] == 20000 else salary[1]), growing, listed, region_sites=REGION)
-        st.caption(f"조건에 맞는 회사 {n:,}곳 (직원 10명 이상) · 추정 연봉 높은 순 상위 {len(top)}곳")
+        st.caption(f"조건에 맞는 회사 {n:,}곳 (직원 10명 이상) · 추정 연봉 높은 순 상위 {len(top)}곳 · 한 줄이 회사 하나예요"
+                   + (" · 맨 아래 '기타'는 10명 미만 사업장을 묶은 평균이에요" if small else ""))
         if groups and filters.UNKNOWN not in groups:
             st.caption("💡 배민·당근처럼 업종이 비어 있는 큰 회사도 있어요. 안 보이면 '업종 정보 없음'도 골라 보세요.")
         if n:
             rows = filters.to_rows(top)
-            # 표도 HTML로 그린다 (그래프와 같은 이유: 추가 파일 없이 보이게)
-            body = "".join(
-                f"<tr><td>{html.escape(r['name'])}</td><td class='t-hide'>{html.escape(str(r['industry'] or '-'))}</td>"
-                f"<td>{html.escape(str(r['region'] or '-'))}</td><td class='t-num'>{r['members']:,}</td>"
-                f"<td class='t-num'><b>{r['estimated_salary_manwon']:,}</b></td>"
-                f"<td class='t-num t-hide'>{r['likely_range_manwon'][0]:,} ~ {r['likely_range_manwon'][1]:,}</td>"
-                f"<td class='t-num t-hide'>{format(r['dart_actual_salary_manwon'], ',') if r['dart_actual_salary_manwon'] else '-'}</td></tr>"
-                for r in rows)
-            st.markdown("<div class='s-table'><table><thead><tr><th>회사</th><th class='t-hide'>업종</th><th>지역</th>"
-                        "<th class='t-num'>직원 수</th><th class='t-num'>추정 연봉(만 원)</th>"
-                        "<th class='t-num t-hide'>가능성 높은 범위</th><th class='t-num t-hide'>공시 연봉</th></tr></thead>"
-                        f"<tbody>{body}</tbody></table></div>", unsafe_allow_html=True)
-            chart = compare_chart(rows[:10])
-            if chart is not None:
-                st.markdown(chart, unsafe_allow_html=True)
+            st.markdown(compare_chart(rows, small, where), unsafe_allow_html=True)
             c1, c2 = st.columns([4, 1], vertical_alignment="bottom")
             pick = c1.selectbox("자세히 볼 회사", [r["name"] for r in rows])
             if c2.button("AI에게 묻기", key="pick", use_container_width=True):

@@ -103,9 +103,12 @@ def small_summary(data, groups=(), regions=(), small=10, region_sites=None):
     if sub.empty:
         return None
     w = sub["members"].astype(float)
+    q25, q75 = sub["est_corrected"].quantile([0.25, 0.75]) / 1e4
     return {"count": int(len(sub)), "workers": int(w.sum()),
             "avg_manwon": int(round((sub["est_corrected"] * w).sum() / w.sum() / 1e4)),
-            "median_manwon": int(round(sub["est_corrected"].median() / 1e4))}
+            "median_manwon": int(round(sub["est_corrected"].median() / 1e4)),
+            # 작은 사업장끼리도 차이가 커서, 가운데 50% 사업장이 어디쯤인지도 준다
+            "middle50_manwon": [int(round(q25)), int(round(q75))]}
 
 
 def to_rows(top):
