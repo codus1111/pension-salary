@@ -48,6 +48,11 @@ INSTRUCTIONS = (
     "'가장 가능성 높은 범위(2곳 중 1곳)'는 likely_range_text, '넓게 보면(10곳 중 8곳)'은 range_text. "
     "금액은 직접 계산하거나 단위를 바꾸지 말고 *_text 필드('1억 171만 원' 꼴)를 그대로 옮겨 쓴다. "
     "업종 안의 위치는 industry_position_text를 그대로 쓴다. "
+    "데이터 기준: 추정 연봉은 국민연금 2026년 9월 자료(2025년 소득 반영), 검증·공시 연봉은 DART 2025 사업연도 사업보고서"
+    "(대부분 2025.1.1~12.31), 1년 퇴사율은 국민연금 2025년 1~12월. 기준 시점을 물으면 이대로 답한다. "
+    "답에는 confidence(정확도 신호등)의 light와 reason을 꼭 넣고, 퇴사·분위기를 물으면 turnover.year_2025의 compare_text와 change_text(2025년 12개월)를 먼저 쓰고, "
+    "이번 달 값(turnover.compare_text)은 보조로만 쓴다. year_2025가 없으면 이번 달 값만 쓴다. "
+    "'비슷한데 연봉 더 높은 곳', '이직할 만한 곳'을 물으면 similar_companies를 호출한다. "
     "사용자가 지역을 붙여 물으면(예: 삼성전자 부산) get_salary_estimate에 region을 넘기고 region_detail을 전한다. "
     "직원 10명 미만 회사는 small_business_group(같은 지역·업종 묶음의 소규모 사업장 평균)을 함께 전한다. "
     "이 값은 회사 전체 직원의 평균 추정치이며 개인의 연봉이나 직무별 연봉이 아니다. "
@@ -115,6 +120,81 @@ def _notes(r):
     return notes
 
 
+# 업종 묶음별 월 퇴사율 중간값 (직원 30명 이상). 금융 0.6% ~ 숙박·음식 3.6%로 업종마다 달라서 업종과 비교한다
+EXIT_MEDIAN = DATA[DATA["members"] >= 30].groupby("group")["monthly_exit_rate"].median().to_dict()
+# 2025년 1~12월로 계산한 1년 퇴사율·직원 수 추이 (src/make_turnover_data.py). 한 달치보다 덜 흔들린다
+_load = lambda name: (pd.read_parquet(DATA_DIR / name).set_index("company_key")  # noqa: E731
+                      if (DATA_DIR / name).exists() else pd.DataFrame())
+TURNOVER, HEADCOUNT = _load("turnover_2025.parquet"), _load("headcount_2025.parquet")
+YEAR_EXIT_MEDIAN = ({} if TURNOVER.empty else
+                    TURNOVER[TURNOVER["avg_members"] >= 30].join(DATA.set_index("company_key")["group"])
+                    .groupby("group")["annual_exit_rate"].median().to_dict())
+
+
+def _year_turnover(r):
+    key = r["company_key"]
+    if TURNOVER.empty or key not in TURNOVER.index:
+        return None
+    t = TURNOVER.loc[key]
+    rate, med = float(t["annual_exit_rate"]), YEAR_EXIT_MEDIAN.get(r["group"])
+    jan, dec = int(t["members_jan"]), int(t["members_dec"])
+    out = {"period": "2025년 1~12월", "annual_exit_rate_pct": round(rate * 100),
+           "annual_hire_rate_pct": round(float(t["annual_hire_rate"]) * 100),
+           "exits_12m": int(t["exits_12m"]), "hires_12m": int(t["hires_12m"]), "avg_members": round(float(t["avg_members"])),
+           "members_jan": jan, "members_dec": dec,
+           "industry_median_annual_exit_rate_pct": None if med is None else round(med * 100)}
+    if jan > 0 and dec > 0:
+        out["change_text"] = f"2025년 1월 {jan:,}명 → 12월 {dec:,}명 ({dec - jan:+,}명, {(dec - jan) / jan:+.0%})"
+    if t["avg_members"] < 30 or med is None:
+        out["compare_text"] = f"2025년 1년 퇴사율 약 {rate:.0%}. 직원이 적어 업종과 비교하지 않는다."
+    else:
+        ratio = rate / med if med else float("inf")
+        word = "낮은 편" if ratio < 0.7 else "높은 편" if ratio > 1.4 else "비슷한 편"
+        out["compare_text"] = f"2025년 1년 퇴사율 약 {rate:.0%}로 같은 업종 묶음 중간값({med:.0%})보다 {word}"
+    if key in HEADCOUNT.index:
+        out["monthly_members"] = {c.replace("_", "-"): (None if pd.isna(v) else int(v)) for c, v in HEADCOUNT.loc[key].items()}
+    return out
+
+
+def _turnover(r):
+    """이번 달 입사·퇴사(국민연금 취득·상실)로 본 퇴사율과 인원 변화. 한 달치라 참고용."""
+    rate = float(r["monthly_exit_rate"])
+    med = EXIT_MEDIAN.get(r["group"])
+    net = int(r["hires"]) - int(r["exits"])
+    out = {"monthly_exit_rate_pct": round(rate * 100, 1),
+           "annual_exit_rate_rough_pct": round(min(rate * 12, 1) * 100),
+           "hires": int(r["hires"]), "exits": int(r["exits"]), "net_change": net,
+           "net_change_text": (f"이번 달 {net:+,}명 (" + ("늘어나는 중" if net > 0 else "줄어드는 중" if net < 0 else "변화 없음") + ")"),
+           "industry_median_monthly_exit_rate_pct": None if med is None else round(med * 100, 1)}
+    if r["members"] < 30 or med is None:
+        out["compare_text"] = "직원이 적어 한 달 퇴사율은 몇 명만 나가도 크게 흔들린다. 참고만 한다."
+    else:
+        ratio = rate / med if med else float("inf")
+        word = "낮은 편" if ratio < 0.7 else "높은 편" if ratio > 1.5 else "비슷한 편"
+        out["compare_text"] = f"월 퇴사율 {rate:.1%}로 같은 업종 묶음 중간값({med:.1%})보다 {word}"
+        if rate > 0.10:  # 토스: 한 달에 311명 상실·571명 취득. 계열사 이동·개편으로 보이는 달
+            out["compare_text"] += (". 다만 이번 달은 입·퇴사가 비정상적으로 많아 계열사 이동이나 조직 개편일 수 있다. "
+                                    "이 한 달로 퇴사가 많은 회사라고 판단하면 안 된다")
+            out["unusual_month"] = True
+    out["meaning"] = ("국민연금 자격 상실 기준이라 이직·퇴사 외에 계열사 이동도 들어간다. 1년 환산은 이번 달 값 × 12로 "
+                      "단순 계산한 것이라, 가능하면 year_2025(12개월 실제 합계)를 쓴다.")
+    out["year_2025"] = _year_turnover(r)
+    return out
+
+
+def _confidence(r):
+    """정확도 신호등. 근거: 상장사 2,392곳 검증 오차(MAPE 7~13%)와 검증 데이터의 규모(90%가 36명 이상)."""
+    band = META["intervals"].get(r["interval_key"], {})
+    mape = band.get("mape", 0.15)
+    if not pd.isna(r["dart_avg_salary"]):
+        return {"level": "높음", "light": "🟢", "reason": "상장사라 사업보고서의 실제 평균 급여와 비교할 수 있어요."}
+    if r["members"] < 30:
+        return {"level": "낮음", "light": "🔴", "reason": "직원 30명 미만은 검증한 회사가 거의 없고, 몇 명의 소득에 크게 흔들려요."}
+    if r["members"] >= 300 and mape <= 0.10:
+        return {"level": "높음", "light": "🟢", "reason": f"비슷한 규모의 상장사 검증에서 평균 오차가 {mape:.0%}였어요."}
+    return {"level": "보통", "light": "🟡", "reason": f"비슷한 상장사 검증에서 평균 오차가 {mape:.0%}였어요. 범위를 함께 보세요."}
+
+
 def _summary(r):
     band = META["intervals"].get(r["interval_key"], {})
     return {
@@ -153,6 +233,8 @@ def _summary(r):
         "dart_tenure_years": None if pd.isna(r["tenure_years"]) else round(float(r["tenure_years"]), 1),
         "notes": _notes(r),
         "small_business_group": _small_group(r),
+        "turnover": _turnover(r),
+        "confidence": _confidence(r),
     }
 
 
@@ -222,6 +304,36 @@ def _region_detail(company_key, region):
             "likely_range_text": f"{_won_text(p['range50_low'])} ~ {_won_text(p['range50_high'])}",
             "range_text": f"{_won_text(p['range_low'])} ~ {_won_text(p['range_high'])}",
             "note": "그 지역 사업장의 보험료로 계산한 추정. 보정 모델은 회사 단위로 만들었으므로 지역 간 차이는 보험료 비율로 옮겼다."}
+
+
+@mcp.tool()
+def similar_companies(company_key: str, limit: int = 5) -> dict:
+    """비슷한 회사 중 추정 연봉이 더 높은 곳을 찾는다 (이직 준비용).
+
+    '비슷한' = 같은 업종(같은 업종 회사가 20곳 미만이거나 업종이 비어 있으면 같은 업종 묶음) + 직원 수 0.5~2배.
+    추정 연봉이 이 회사보다 높은 곳을 높은 순으로. 직원 30명 미만 회사는 숫자가 흔들려서 뺀다.
+    """
+    r = _row(company_key)
+    same = DATA["intp_nm"] == r["intp_nm"]
+    basis = f"같은 업종({_text(r['intp_nm'])})"
+    if filters.group_of(r["intp_nm"]) == filters.UNKNOWN or same.sum() < 20:
+        same = DATA["group"] == r["group"]
+        basis = f"같은 업종 묶음({r['group']})"
+    lo, hi = max(30, r["members"] * 0.5), max(60, r["members"] * 2)
+    pool = DATA[same & DATA["members"].between(lo, hi) & (DATA["est_corrected"] > r["est_corrected"])
+                & (DATA["company_key"] != company_key)]
+    top = pool.nlargest(max(1, min(limit, 10)), "est_corrected")
+    return {"base": {"name": r["sample_nm"], "members": int(r["members"]), "estimated_salary_text": _won_text(r["est_corrected"])},
+            "basis": f"{basis}, 직원 {int(lo):,}~{int(hi):,}명",
+            "count_higher": int(len(pool)),
+            "companies": [{"company_key": x.company_key, "name": x.sample_nm, "members": int(x.members),
+                           "region": _text(x.sido), "estimated_salary_manwon": _manwon(x.est_corrected),
+                           "estimated_salary_text": _won_text(x.est_corrected),
+                           "range_manwon": [_manwon(x.range_low), _manwon(x.range_high)],
+                           "likely_range_manwon": [_manwon(x.range50_low), _manwon(x.range50_high)],
+                           "dart_actual_salary_manwon": _manwon(x.dart_avg_salary),
+                           "monthly_exit_rate_pct": round(float(x.monthly_exit_rate) * 100, 1)} for x in top.itertuples()],
+            "note": "추정치끼리 비교한 것이라 차이가 범위 안이면 실제로는 비슷할 수 있다."}
 
 
 @mcp.tool()

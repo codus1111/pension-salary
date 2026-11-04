@@ -12,7 +12,6 @@ import os
 import sys
 from pathlib import Path
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -97,18 +96,66 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 [class*="st-key-sg"] button > div {{ margin-top:18px; width:100%; justify-content:flex-start; text-align:left; }}
 [class*="st-key-sg"] button p {{ text-align:left; }}
 .st-key-reset button {{ border-radius:12px; border:1px solid #dbe6f4; color:#24456c; font-size:12px; }}
-.s-user {{ margin-left:12%; background:#edf4ff; border:1px solid #e6eef8; border-radius:16px; padding:14px 18px;
+.s-user {{ margin:6px 0 16px 12%; background:#edf4ff; border:1px solid #e6eef8; border-radius:16px; padding:14px 18px;
            font-size:14px; line-height:1.8; }}
 .s-user b, .s-who {{ display:block; color:#216aca; font-size:11px; font-weight:700; margin-bottom:4px; }}
 [class*="st-key-answer"] p, [class*="st-key-answer"] li {{ font-size:14.5px; line-height:1.8; }}
 [class*="st-key-answer"] h1, [class*="st-key-answer"] h2, [class*="st-key-answer"] h3 {{ font-size:17px; padding:10px 0 4px; }}
-[class*="st-key-answer"] {{ background:#f7faff; border:1px solid #e6eef8; border-radius:16px; padding:16px 20px; }}
+[class*="st-key-answer"] {{ background:#f7faff; border:1px solid #e6eef8; border-radius:16px; padding:16px 20px; margin-bottom:10px; }}
 .s-cards {{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:6px 0 4px; }}
 .s-card {{ background:white; border:1px solid var(--line); border-radius:14px; padding:12px 14px; }}
 .s-card small {{ display:block; color:var(--muted); font-size:11px; margin-bottom:4px; }}
 .s-card b {{ font-size:18px; letter-spacing:-.5px; color:var(--ink); }}
 .s-card em {{ display:block; font-style:normal; color:var(--muted); font-size:11px; margin-top:2px; }}
 .s-card.main b {{ color:var(--blue); }}
+.s-cards3 {{ grid-template-columns:repeat(3,minmax(0,1fr)); }}
+.s-cards2 {{ grid-template-columns:repeat(2,minmax(0,1fr)); }}
+.s-basis {{ background:white; border:1px solid var(--line); border-radius:20px; padding:18px 22px; margin:4px 0 14px; }}
+.s-basis > b {{ font-size:15px; color:var(--ink); }}
+.s-basis table {{ width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }}
+.s-basis th {{ width:24%; text-align:left; color:#4572a9; font-weight:650; vertical-align:top; padding:9px 10px 9px 0; border:0;
+               border-top:1px solid #edf2f8; }}
+.s-basis td {{ padding:9px 0; border:0; border-top:1px solid #edf2f8; color:var(--ink); }}
+.s-basis td span {{ color:var(--muted); font-size:12px; }}
+@media (max-width:640px) {{ .s-basis th, .s-basis td {{ display:block; width:100%; }} .s-basis td {{ border-top:0; padding-top:0; }} }}
+.s-cards1 {{ grid-template-columns:1fr; }}
+.hc {{ background:white; border:1px solid var(--line); border-radius:14px; padding:12px 14px 8px; margin:10px 0 4px; }}
+.hc small {{ color:var(--muted); font-size:11px; }}
+.hc-bars {{ display:grid; grid-template-columns:repeat(12,1fr); gap:6px; height:84px; align-items:end; margin-top:8px; }}
+.hc-bar {{ display:flex; flex-direction:column; justify-content:flex-end; height:100%; }}
+.hc-bar span {{ display:block; background:#8dbaf5; border-radius:4px 4px 0 0; min-height:3px; }}
+.hc-bar:hover span {{ background:#0868ec; }}
+.hc-bar em {{ font-style:normal; font-size:10px; color:#8193a8; text-align:center; margin-top:3px; }}
+/* HTML 범위 그래프 */
+.rc {{ margin:12px 0 4px; }}
+.rc-row {{ display:grid; grid-template-columns:minmax(90px,190px) 1fr 64px; gap:12px; align-items:center; min-height:34px; }}
+.rc-name {{ font-size:13px; color:#3a5170; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
+.rc-track {{ position:relative; height:20px; background:repeating-linear-gradient(90deg,transparent 0 calc(16.66% - 1px),#edf2f8 0 16.66%); border-radius:6px; }}
+.rc-track span {{ position:absolute; top:0; height:20px; border-radius:6px; }}
+.rc-w {{ background:#dbe8fb; }}
+.rc-l {{ background:#8dbaf5; }}
+.rc-e {{ width:14px !important; height:14px !important; top:3px !important; margin-left:-7px; background:#0868ec;
+         transform:rotate(45deg); border-radius:2px !important; box-shadow:0 0 0 2px white; }}
+.rc-d {{ width:4px; margin-left:-2px; top:-4px !important; height:28px !important; background:#f08c2e; border-radius:2px !important; }}
+.rc-val {{ font-size:12px; color:#62758d; font-variant-numeric:tabular-nums; }}
+.rc-axis {{ min-height:22px; }}
+.rc-ticks {{ background:none; height:16px; }}
+.rc-ticks span {{ transform:translateX(-50%); font-size:11px; color:#8193a8; white-space:nowrap; height:auto; }}
+.s-table {{ overflow-x:auto; margin:6px 0 10px; border:1px solid var(--line); border-radius:14px; }}
+.s-table table {{ width:100%; border-collapse:collapse; font-size:13px; }}
+.s-table th {{ background:#f5f9fe; color:#4a5f7a; font-weight:650; text-align:left; padding:9px 12px; border:0; }}
+.s-table td {{ padding:8px 12px; border:0; border-top:1px solid #edf2f8; }}
+.s-table .t-num {{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }}
+@media (max-width:640px) {{
+  /* 휴대폰: 회사 이름은 막대 위 한 줄, 눈금은 하나 걸러 */
+  .rc-row {{ grid-template-columns:1fr 46px; gap:2px 8px; min-height:0; margin-bottom:6px; }}
+  .rc-name {{ grid-column:1 / -1; text-align:left; font-size:12px; }}
+  .rc-axis .rc-name {{ display:none; }}
+  .rc-ticks span:nth-child(even) {{ display:none; }}
+  .s-cards.s-cards3 {{ grid-template-columns:1fr; }}
+  [class*="st-key-answer"] {{ padding:12px 10px; }}
+  .s-table .t-hide {{ display:none; }}
+}}
 .s-small {{ background:#f5f9fe; border:1px solid #e5eef9; border-radius:16px; padding:14px 16px; margin:6px 0 12px; }}
 .s-small > small {{ color:#4572a9; font-size:12px; font-weight:650; }}
 .s-small > em {{ display:block; font-style:normal; color:var(--muted); font-size:11px; margin-top:6px; }}
@@ -132,6 +179,20 @@ header[data-testid="stHeader"] {{ background:transparent; }}
   [class*="st-key-sg"] button {{ min-height:76px; }}
 }}
 </style>""", unsafe_allow_html=True)
+
+
+# 데이터 기준 날짜 (화면 아래 표로 보여준다)
+DATA_BASIS = [
+    ("추정 연봉", "국민연금 가입 사업장 2026년 9월 자료",
+     "보험료의 기준이 되는 소득(기준소득월액)은 매년 7월에 전년도 소득으로 다시 정해져서, 2026년 9월 자료는 2025년 소득을 반영해요."),
+    ("검증·보정 기준", "DART 2025 사업연도 사업보고서",
+     "대부분 2025년 1월 1일 ~ 12월 31일 사업연도이고, 보통 2026년 3월에 공시된 자료예요. 상장사 2,392곳의 1인 평균 급여를 정답으로 썼어요."),
+    ("1년 퇴사율 · 직원 수 추이", "국민연금 2025년 1월 ~ 12월 (12개월)",
+     "12개월 동안의 자격 상실자 합계 ÷ 12개월 평균 가입자예요. 계열사 이동도 포함돼요."),
+    ("이번 달 입·퇴사", "국민연금 2026년 9월 한 달", "한 달치라 개편·이동이 있으면 크게 흔들려요. 참고용이에요."),
+]
+DATA_BASIS_HTML = ('<div class="s-basis"><b>📅 데이터 기준 날짜</b><table>' + "".join(
+    f"<tr><th>{a}</th><td><b>{b}</b><br><span>{c}</span></td></tr>" for a, b, c in DATA_BASIS) + "</table></div>")
 
 
 def secret(name):
@@ -196,7 +257,7 @@ def collect(trace):
         r = t.get("result")
         if t["tool"] == "compare_companies" and isinstance(r, list):
             compare = r
-        elif t["tool"] == "industry_ranking" and isinstance(r, dict) and r.get("companies"):
+        elif t["tool"] in ("industry_ranking", "similar_companies") and isinstance(r, dict) and r.get("companies"):
             ranking = r["companies"]
         elif t["tool"] == "get_salary_estimate" and isinstance(r, dict) and r.get("estimated_salary_manwon"):
             singles[r["company_key"]] = r
@@ -210,34 +271,37 @@ def collect(trace):
 
 
 def range_chart(rows):
-    """회사마다 넓은 범위(80%)·가능성 높은 범위(50%)·추정값(◆)·공시 연봉(|)을 한 줄에 그린다."""
-    df = pd.DataFrame([{
-        "회사": r["name"],
-        "추정": r["estimated_salary_manwon"],
-        "범위80_시작": (r.get("range_manwon") or [None, None])[0], "범위80_끝": (r.get("range_manwon") or [None, None])[1],
-        "범위50_시작": (r.get("likely_range_manwon") or [None, None])[0], "범위50_끝": (r.get("likely_range_manwon") or [None, None])[1],
-        "공시": r.get("dart_actual_salary_manwon"),
-    } for r in rows if r.get("estimated_salary_manwon")])
-    if df.empty:
+    """회사마다 넓은 범위(80%)·가능성 높은 범위(50%)·추정값(◆)·공시 연봉(|)을 한 줄에 그린다.
+
+    그래프 라이브러리(Vega) 대신 HTML로 직접 그린다: 배포 직후 브라우저가 그래프용 파일을 못 받아
+    'Failed to fetch dynamically imported module' 오류가 난 적이 있어서, 추가 파일 없이 보이게 했다.
+    """
+    rows = sorted([r for r in rows if r.get("estimated_salary_manwon")], key=lambda r: -r["estimated_salary_manwon"])
+    if not rows:
         return None
-    order = df.sort_values("추정", ascending=False)["회사"].tolist()
-    y = alt.Y("회사:N", sort=order, title=None, axis=alt.Axis(labelFontSize=12, labelLimit=160))
-    x = alt.X("범위80_시작:Q", title="연봉 (만 원)", scale=alt.Scale(zero=False, nice=True),
-              axis=alt.Axis(format=",d", grid=True, tickCount=6))
-    base = alt.Chart(df)
-    tip = [alt.Tooltip("회사:N"), alt.Tooltip("추정:Q", format=",d", title="추정 (만 원)"),
-           alt.Tooltip("범위50_시작:Q", format=",d", title="가능성 높은 범위 시작"),
-           alt.Tooltip("범위50_끝:Q", format=",d", title="가능성 높은 범위 끝")]
-    wide = base.mark_bar(color="#dbe8fb", cornerRadius=6, height=18).encode(y=y, x=x, x2="범위80_끝:Q", tooltip=tip)
-    likely = base.mark_bar(color="#8dbaf5", cornerRadius=6, height=18).encode(y=y, x="범위50_시작:Q", x2="범위50_끝:Q", tooltip=tip)
-    est = base.mark_point(shape="diamond", filled=True, size=170, color="#0868ec").encode(y=y, x="추정:Q", tooltip=tip)
-    layers = [wide, likely, est]
-    if df["공시"].notna().any():
-        layers.append(base.mark_point(shape="M0,-1V1", size=500, strokeWidth=3, color="#f08c2e", opacity=1)
-                      .encode(y=y, x="공시:Q", tooltip=[alt.Tooltip("공시:Q", format=",d", title="실제 공시 연봉 (만 원)")]))
-    # 높이에 눈금·축 제목(약 60px)이 포함돼서, 회사 한 줄마다 40px씩 더한다
-    return (alt.layer(*layers).properties(height=70 + 40 * len(df))
-            .configure_view(stroke=None).configure_axis(labelColor="#4a5f7a", titleColor="#62758d", gridColor="#edf2f8"))
+    pair = lambda r, k: (r.get(k) or [None, None])  # noqa: E731
+    vals = [v for r in rows for v in (*pair(r, "range_manwon"), r["estimated_salary_manwon"],
+                                      r.get("dart_actual_salary_manwon")) if v]
+    step = 1000 if max(vals) - min(vals) > 3000 else 500
+    lo, hi = (min(vals) // step) * step, -(-max(vals) // step) * step
+    pos = lambda v: (v - lo) / (hi - lo) * 100  # noqa: E731
+    lines = []
+    for r in rows:
+        (a, b), (c, d) = pair(r, "range_manwon"), pair(r, "likely_range_manwon")
+        est, dart = r["estimated_salary_manwon"], r.get("dart_actual_salary_manwon")
+        tip = f"추정 {est:,}만 원" + (f" · 가능성 높은 범위 {c:,}~{d:,}만" if c else "") + (f" · 공시 {dart:,}만" if dart else "")
+        bars = (f'<span class="rc-w" style="left:{pos(a):.1f}%;width:{pos(b) - pos(a):.1f}%"></span>' if a else "") + \
+               (f'<span class="rc-l" style="left:{pos(c):.1f}%;width:{pos(d) - pos(c):.1f}%"></span>' if c else "") + \
+               f'<span class="rc-e" style="left:{pos(est):.1f}%"></span>' + \
+               (f'<span class="rc-d" style="left:{pos(dart):.1f}%"></span>' if dart else "")
+        lines.append(f'<div class="rc-row" title="{html.escape(tip)}"><div class="rc-name">{html.escape(r["name"])}</div>'
+                     f'<div class="rc-track">{bars}</div><div class="rc-val">{est:,}</div></div>')
+    n_ticks = int((hi - lo) / step)
+    skip = max(1, -(-n_ticks // 6))
+    ticks = "".join(f'<span style="left:{pos(lo + i * step):.1f}%">{lo + i * step:,}</span>'
+                    for i in range(0, n_ticks + 1, skip))
+    return (f'<div class="rc">{"".join(lines)}<div class="rc-row rc-axis"><div class="rc-name"></div>'
+            f'<div class="rc-track rc-ticks">{ticks}</div><div class="rc-val">만 원</div></div></div>')
 
 
 def card(label, value, sub="", main=False):
@@ -253,7 +317,59 @@ def single_cards(r):
         cards.append(card("실제 공시 연봉", r["dart_actual_salary_text"], "상장사 사업보고서"))
     elif r.get("industry_top_pct"):
         cards.append(card("업종 안 위치", f"상위 {r['industry_top_pct']}%", f"{r['industry_companies']:,}곳 중"))
-    return '<div class="s-cards">' + "".join(cards) + "</div>"
+    # 둘째 줄: 정확도 신호등 · 퇴사율 · 인원 변화
+    conf, to = r.get("confidence") or {}, r.get("turnover") or {}
+    second = []
+    if conf:
+        second.append(card("정확도", f"{conf['light']} {conf['level']}", conf["reason"]))
+    year = (to or {}).get("year_2025")
+    if year:  # 2025년 12개월 실제 합계가 있으면 그걸 먼저 보여준다
+        med = year.get("industry_median_annual_exit_rate_pct")
+        second.append(card("1년 퇴사율 (2025년)", f"{year['annual_exit_rate_pct']}%",
+                           f"업종 중간값 {med}% · 퇴사 {year['exits_12m']:,}명" if med is not None else
+                           f"퇴사 {year['exits_12m']:,}명 · 직원이 적어 참고만"))
+        if year["members_jan"] > 0 and year["members_dec"] > 0:
+            diff = year["members_dec"] - year["members_jan"]
+            second.append(card("1년 직원 수 변화", f"{diff:+,}명",
+                               f"2025년 1월 {year['members_jan']:,} → 12월 {year['members_dec']:,}"))
+    elif to:
+        med = to.get("industry_median_monthly_exit_rate_pct")
+        second.append(card("월 퇴사율" + (" ⚠️" if to.get("unusual_month") else ""), f"{to['monthly_exit_rate_pct']}%",
+                           "이번 달 이동이 유난히 많음 (개편 등)" if to.get("unusual_month") else
+                           f"업종 중간값 {med}%" if med is not None else "직원이 적어 참고만"))
+        second.append(card("이번 달 인원 변화", f"{to['net_change']:+,}명", f"입사 {to['hires']:,} · 퇴사 {to['exits']:,}"))
+    out = '<div class="s-cards">' + "".join(cards) + "</div>"
+    if second:
+        out += f'<div class="s-cards s-cards{len(second)}">' + "".join(second) + "</div>"
+    if year and year.get("monthly_members"):
+        out += headcount_chart(year["monthly_members"])
+    return out
+
+
+def headcount_chart(series):
+    """2025년 월별 직원 수 막대 (HTML). 위아래 차이가 보이도록 가장 작은 달의 90%를 바닥으로 둔다."""
+    vals = {k: v for k, v in series.items() if v}
+    if len(vals) < 6:
+        return ""
+    lo, hi = min(vals.values()) * 0.9, max(vals.values())
+    bars = "".join(
+        f'<div class="hc-bar" title="{k} · {v:,}명"><span style="height:{(v - lo) / (hi - lo or 1) * 100:.0f}%"></span>'
+        f'<em>{int(k[5:])}월</em></div>' for k, v in vals.items())
+    return (f'<div class="hc"><small>직원 수 추이 · 2025년 1~12월 (가장 적은 달 {min(vals.values()):,}명 · '
+            f'가장 많은 달 {max(vals.values()):,}명)</small><div class="hc-bars">{bars}</div></div>')
+
+
+def similar_block(r):
+    """비슷한 규모·업종에서 추정 연봉이 더 높은 회사 (AI 없이 데이터에서 바로)."""
+    try:
+        sim = agent.tools.similar_companies(r["company_key"], limit=5)
+    except Exception:
+        return
+    if not sim["companies"]:
+        return
+    with st.expander(f"💼 비슷한 회사 중 연봉이 더 높은 곳 ({sim['count_higher']:,}곳 중 상위 {len(sim['companies'])}곳)"):
+        st.caption(f"기준: {sim['basis']} · {sim['note']}")
+        st.markdown(range_chart(sim["companies"]), unsafe_allow_html=True)
 
 
 def show_visuals(kind, rows):
@@ -263,7 +379,7 @@ def show_visuals(kind, rows):
         st.markdown(single_cards(rows[0]), unsafe_allow_html=True)
     chart = range_chart(rows[:10])
     if chart is not None:
-        st.altair_chart(chart, use_container_width=True)
+        st.markdown(chart, unsafe_allow_html=True)
         legend = "◆ 추정값 · 진한 막대: 가능성 높은 범위(50%) · 연한 막대: 넓은 범위(80%)"
         if any(r.get("dart_actual_salary_manwon") for r in rows):
             legend += " · 주황 선: 실제 공시 연봉"
@@ -271,6 +387,8 @@ def show_visuals(kind, rows):
         if any(r.get("likely_range_manwon") and r["estimated_salary_manwon"] < r["likely_range_manwon"][0] for r in rows):
             st.caption("💡 ◆가 범위보다 왼쪽에 있으면: 연봉이 높은 회사는 국민연금 상한 때문에 추정이 실제보다 낮게 나오는 "
                        "경향이 있어요. 비슷한 상장사들의 실제 연봉은 범위 쪽에 더 많았어요.")
+    if kind == "single":
+        similar_block(rows[0])
 
 
 # ---------- 화면 ----------
@@ -287,7 +405,8 @@ with st.container(key="hero"):
         typed = c1.text_input("질문", placeholder="🔍  회사 이름이나 궁금한 내용을 검색하세요", label_visibility="collapsed")
         if c2.form_submit_button("검색", use_container_width=True) and typed.strip():
             question = typed.strip()
-    st.markdown('<p class="s-note">국민연금 공개 데이터 · DART 공시 검증</p>', unsafe_allow_html=True)
+    st.markdown('<p class="s-note">국민연금 2026년 9월 자료 · DART 2025 사업연도(2025.1.1~12.31) 공시로 검증</p>',
+                unsafe_allow_html=True)
 
 with st.container(key="workspace"):
     h1, h2 = st.container(key="whead").columns([5, 1], vertical_alignment="center")
@@ -410,22 +529,27 @@ with st.container(key="explore"):
             st.caption("💡 배민·당근처럼 업종이 비어 있는 큰 회사도 있어요. 안 보이면 '업종 정보 없음'도 골라 보세요.")
         if n:
             rows = filters.to_rows(top)
-            table = pd.DataFrame([{
-                "회사": r["name"], "업종": r["industry"], "지역": r["region"], "직원 수": r["members"],
-                "추정 연봉(만 원)": r["estimated_salary_manwon"],
-                "가능성 높은 범위": f"{r['likely_range_manwon'][0]:,} ~ {r['likely_range_manwon'][1]:,}",
-                "공시 연봉(만 원)": f"{r['dart_actual_salary_manwon']:,}" if r["dart_actual_salary_manwon"] else "-",
-            } for r in rows])
-            st.dataframe(table, hide_index=True, use_container_width=True,
-                         column_config={"직원 수": st.column_config.NumberColumn(format="localized"),
-                                        "추정 연봉(만 원)": st.column_config.NumberColumn(format="localized")})
+            # 표도 HTML로 그린다 (그래프와 같은 이유: 추가 파일 없이 보이게)
+            body = "".join(
+                f"<tr><td>{html.escape(r['name'])}</td><td class='t-hide'>{html.escape(str(r['industry'] or '-'))}</td>"
+                f"<td>{html.escape(str(r['region'] or '-'))}</td><td class='t-num'>{r['members']:,}</td>"
+                f"<td class='t-num'><b>{r['estimated_salary_manwon']:,}</b></td>"
+                f"<td class='t-num t-hide'>{r['likely_range_manwon'][0]:,} ~ {r['likely_range_manwon'][1]:,}</td>"
+                f"<td class='t-num t-hide'>{format(r['dart_actual_salary_manwon'], ',') if r['dart_actual_salary_manwon'] else '-'}</td></tr>"
+                for r in rows)
+            st.markdown("<div class='s-table'><table><thead><tr><th>회사</th><th class='t-hide'>업종</th><th>지역</th>"
+                        "<th class='t-num'>직원 수</th><th class='t-num'>추정 연봉(만 원)</th>"
+                        "<th class='t-num t-hide'>가능성 높은 범위</th><th class='t-num t-hide'>공시 연봉</th></tr></thead>"
+                        f"<tbody>{body}</tbody></table></div>", unsafe_allow_html=True)
             chart = range_chart(rows[:10])
             if chart is not None:
-                st.altair_chart(chart, use_container_width=True)
+                st.markdown(chart, unsafe_allow_html=True)
             c1, c2 = st.columns([4, 1], vertical_alignment="bottom")
             pick = c1.selectbox("자세히 볼 회사", [r["name"] for r in rows])
             if c2.button("AI에게 묻기", key="pick", use_container_width=True):
                 ask_about(pick)
+
+st.markdown(DATA_BASIS_HTML, unsafe_allow_html=True)
 
 with st.expander("이 데이터는 어떻게 해석하면 되나요?"):
     st.markdown("**국민연금 공개 데이터로 추정하고, DART 공시로 검증해요.**\n\n"
