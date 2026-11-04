@@ -212,6 +212,16 @@ python src/compare_monthly.py 2026           # → reports/monthly_aligned.md
 **한계**: 질문 20개를 한 번씩 돌린 결과다. 모델 답은 매번 조금씩 달라서, 더 믿을 만한 숫자를 얻으려면 질문을 늘리고
 여러 번 반복해야 한다. 채점 기준도 직접 만든 규칙이라, 규칙이 못 잡는 오류(예: 엉뚱한 해석)는 사람이 읽어 확인했다.
 
+### 웹 화면 (`app/streamlit_app.py`)
+직접 만든 에이전트에 대화형 웹 화면을 붙였다. Streamlit Community Cloud(무료)에 배포한다.
+- 데이터: `src/make_app_data.py`로 도구가 쓰는 열만 남겨 32MB로 줄인 `data/app/`만 저장소에 올린다
+- 비밀 값: `GEMINI_API_KEY`(AI 모델), `APP_PASSWORD`(무료 한도를 아무나 쓰지 않게)는 코드가 아니라
+  배포 서비스의 Secrets 설정에 넣는다
+- 대화를 기억해 "그럼 카카오는?"처럼 이어서 물을 수 있고, 답마다 사용한 도구를 보여준다
+```
+~/venvs/pension/bin/streamlit run app/streamlit_app.py   # 로컬 실행 (WSL)
+```
+
 ### MCP 서버 (`src/mcp_server.py`)
 같은 도구를 MCP로 열어 Claude 앱에서도 쓸 수 있게 했다.
 

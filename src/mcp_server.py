@@ -13,6 +13,7 @@ Claude 같은 AI가 이 도구들을 골라 써서 "이 회사 연봉 어때?" �
 실행 (WSL): ~/venvs/pension/bin/python src/mcp_server.py   (stdio)
 """
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -23,8 +24,11 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 from match import to_hangul  # noqa: E402
 
-DATA = pd.read_parquet(ROOT / "data/processed/serving.parquet")
-META = json.loads((ROOT / "data/processed/serving_meta.json").read_text(encoding="utf-8"))
+# 분석한 컴퓨터에는 data/processed, 웹 배포(저장소)에는 작게 만든 data/app만 있다 (src/make_app_data.py)
+DATA_DIR = Path(os.environ["PENSION_DATA_DIR"]) if os.environ.get("PENSION_DATA_DIR") else (
+    ROOT / "data/processed" if (ROOT / "data/processed/serving.parquet").exists() else ROOT / "data/app")
+DATA = pd.read_parquet(DATA_DIR / "serving.parquet")
+META = json.loads((DATA_DIR / "serving_meta.json").read_text(encoding="utf-8"))
 CAP_ANNUAL = META["cap_monthly"] * 12
 
 # MCP 서버와 직접 만든 에이전트(src/agent.py)가 같은 안내문을 쓴다
