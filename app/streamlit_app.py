@@ -184,7 +184,7 @@ def load_agent():
 agent, provider = load_agent()
 
 
-filters, DATA = agent.tools.filters, agent.tools.DATA  # 에이전트 도구와 같은 표 (업종 묶음 열 포함)
+filters, DATA, REGION = agent.tools.filters, agent.tools.DATA, agent.tools.REGION_SITES  # 에이전트 도구와 같은 표
 
 
 # ---------- 답변 아래 그림: 도구 결과에서 회사별 추정값·범위를 모아 그린다 ----------
@@ -381,28 +381,30 @@ with st.container(key="explore"):
             small = next((h for h in hits if h["members"] < 10), None)
             if small:
                 g = filters.group_of(small["industry"])
-                s = filters.small_summary(DATA, [g], [small["region"]] if small["region"] else [])
+                s = filters.small_summary(DATA, [g], [small["region"]] if small["region"] else [], region_sites=REGION)
                 if s:
                     st.markdown(small_card(s, f"{small['region'] or '전국'} · {g}"), unsafe_allow_html=True)
 
     with by_filter:
         f1, f2 = st.columns(2)
         groups = f1.multiselect("업종", filters.GROUP_NAMES, placeholder="전체 업종")
-        regions = f2.multiselect("지역", sorted(DATA["sido"].dropna().unique()), placeholder="전체 지역")
+        regions = f2.multiselect("지역", sorted(DATA["sido"].dropna().unique()), placeholder="전체 지역",
+                                 help="그 지역에 있는 사업장 기준이에요. 여러 지역에 사업장이 있는 회사는 그 지역 몫만 계산해요. "
+                                      "전국 직원을 본사 한 곳으로 신고한 회사(삼성전자 등)는 본사 지역에만 나와요.")
         f3, f4 = st.columns(2)
         size = f3.selectbox("회사 규모", list(filters.SIZES))
         salary = f4.select_slider("추정 연봉 (만 원)", options=[0, 3000, 4000, 5000, 6000, 7000, 8000, 10000, 20000],
-                                  value=(0, 20000), format_func=lambda v: "제한 없음" if v in (0, 20000) else f"{v:,}")
+                                  value=(0, 20000), format_func=lambda v: "0" if v == 0 else "2억 이상" if v == 20000 else f"{v:,}")
         f5, f6 = st.columns(2)
         growing = f5.checkbox("직원이 늘고 있는 회사만", help="이번 달 입사자가 퇴사자보다 많은 회사")
         listed = f6.checkbox("상장사만", help="실제 공시 연봉과 같이 볼 수 있어요")
         if size in ("전체", "50명 미만") and not listed:
-            s = filters.small_summary(DATA, groups, regions)
+            s = filters.small_summary(DATA, groups, regions, region_sites=REGION)
             if s:
                 st.markdown(small_card(s, " · ".join(regions or ["전국"]) + " · " + (", ".join(groups) or "전체 업종")),
                             unsafe_allow_html=True)
         n, top = filters.find(DATA, groups, regions, size,
-                              (salary[0] or None, None if salary[1] == 20000 else salary[1]), growing, listed)
+                              (salary[0] or None, None if salary[1] == 20000 else salary[1]), growing, listed, region_sites=REGION)
         st.caption(f"조건에 맞는 회사 {n:,}곳 (직원 10명 이상) · 추정 연봉 높은 순 상위 {len(top)}곳")
         if groups and filters.UNKNOWN not in groups:
             st.caption("💡 배민·당근처럼 업종이 비어 있는 큰 회사도 있어요. 안 보이면 '업종 정보 없음'도 골라 보세요.")

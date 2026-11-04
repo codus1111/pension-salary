@@ -60,7 +60,8 @@ TOOL_SPECS = [
     {"name": "get_salary_estimate",
      "description": tools.get_salary_estimate.__doc__,
      "parameters": {"type": "object", "properties": {
-         "company_key": {"type": "string", "description": "search_company 결과의 company_key"}},
+         "company_key": {"type": "string", "description": "search_company 결과의 company_key"},
+         "region": {"type": "string", "description": "사용자가 지역을 말했을 때만: 시·도 이름 (예: 부산, 경기)"}},
          "required": ["company_key"]}},
     {"name": "compare_companies",
      "description": tools.compare_companies.__doc__,

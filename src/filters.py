@@ -46,14 +46,34 @@ def add_groups(data):
     return names.map(mapping).fillna(UNKNOWN)
 
 
+def in_regions(data, regions, region_sites=None):
+    """그 지역 '사업장'만 남긴다. 여러 시·도에 사업장이 있는 회사는 회사 전체 대신 그 지역 몫(region_sites)을 쓴다.
+
+    예: 현대제철을 충남으로 거르면 회사 전체 11,110명이 아니라 충남 사업장 6,694명과 그 추정 연봉이 나온다.
+    사업장이 한 시·도에만 있는 회사(삼성전자 등 전국 직원을 본사로 신고한 회사 포함)는 그 시·도로만 잡힌다.
+    """
+    if not regions:
+        return data
+    if region_sites is None or region_sites.empty:
+        return data[data["sido"].isin(regions)]
+    split = data["company_key"].isin(region_sites["company_key"])
+    whole = data[~split & data["sido"].isin(regions)]
+    part = region_sites[region_sites["sido"].isin(regions)]
+    info = data.set_index("company_key").loc[part["company_key"], ["group", "cap_ratio"]].reset_index(drop=True)
+    part = part.reset_index(drop=True).assign(group=info["group"], cap_ratio=info["cap_ratio"], dart_avg_salary=float("nan"))
+    # 회사 일부만 보는 줄은 이름 뒤에 지역을 붙이고, 회사 전체의 공시 연봉은 비교하지 않는다
+    partial = part["members"] < part["company_members"]
+    part.loc[partial, "sample_nm"] = part.loc[partial, "sample_nm"].astype(str) + " (" + part.loc[partial, "sido"].astype(str) + " 사업장)"
+    return pd.concat([whole, part], ignore_index=True)
+
+
 def find(data, groups=(), regions=(), size="전체", salary=(None, None), growing=False, listed=False,
-         min_members=10, limit=20):
+         min_members=10, limit=20, region_sites=None):
     """조건에 맞는 회사를 추정 연봉 높은 순으로. 10명 미만은 숫자가 불안정해서 빼고 small_summary로 묶어 본다."""
+    data = in_regions(data, regions, region_sites)
     m = data["members"] >= min_members
     if groups:
         m &= data["group"].isin(groups)
-    if regions:
-        m &= data["sido"].isin(regions)
     lo, hi = SIZES[size]
     m &= data["members"] >= max(lo, min_members)
     if hi:
@@ -70,16 +90,15 @@ def find(data, groups=(), regions=(), size="전체", salary=(None, None), growin
     return len(sub), sub.nlargest(limit, "est_corrected")
 
 
-def small_summary(data, groups=(), regions=(), small=10):
+def small_summary(data, groups=(), regions=(), small=10, region_sites=None):
     """직원 10명 미만 사업장은 한 곳씩 보면 숫자가 흔들려서, 조건이 같은 곳끼리 하나로 묶어 평균을 낸다.
 
     평균은 직원 수로 가중한다: (각 회사 추정 연봉 × 직원 수)의 합 ÷ 전체 직원 수 = 소규모 사업장에서 일하는 사람의 평균.
     """
+    data = in_regions(data, regions, region_sites)
     m = (data["members"] > 0) & (data["members"] < small)
     if groups:
         m &= data["group"].isin(groups)
-    if regions:
-        m &= data["sido"].isin(regions)
     sub = data[m & data["est_corrected"].notna()]
     if sub.empty:
         return None

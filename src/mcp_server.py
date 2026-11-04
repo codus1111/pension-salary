@@ -31,6 +31,9 @@ DATA_DIR = Path(os.environ["PENSION_DATA_DIR"]) if os.environ.get("PENSION_DATA_
     ROOT / "data/processed" if (ROOT / "data/processed/serving.parquet").exists() else ROOT / "data/app")
 DATA = pd.read_parquet(DATA_DIR / "serving.parquet")
 DATA["group"] = filters.add_groups(DATA)  # 업종 1,232가지 → 14개 묶음 (소규모 사업장 평균·웹 필터용)
+# 여러 시·도에 사업장이 있는 회사의 지역별 몫 (src/make_region_data.py). 지역으로 거를 때 그 지역 사업장만 본다
+REGION_SITES = (pd.read_parquet(DATA_DIR / "region_sites.parquet")
+                if (DATA_DIR / "region_sites.parquet").exists() else pd.DataFrame())
 META = json.loads((DATA_DIR / "serving_meta.json").read_text(encoding="utf-8"))
 CAP_ANNUAL = META["cap_monthly"] * 12
 
@@ -45,6 +48,7 @@ INSTRUCTIONS = (
     "'가장 가능성 높은 범위(2곳 중 1곳)'는 likely_range_text, '넓게 보면(10곳 중 8곳)'은 range_text. "
     "금액은 직접 계산하거나 단위를 바꾸지 말고 *_text 필드('1억 171만 원' 꼴)를 그대로 옮겨 쓴다. "
     "업종 안의 위치는 industry_position_text를 그대로 쓴다. "
+    "사용자가 지역을 붙여 물으면(예: 삼성전자 부산) get_salary_estimate에 region을 넘기고 region_detail을 전한다. "
     "직원 10명 미만 회사는 small_business_group(같은 지역·업종 묶음의 소규모 사업장 평균)을 함께 전한다. "
     "이 값은 회사 전체 직원의 평균 추정치이며 개인의 연봉이나 직무별 연봉이 아니다. "
     "추정 방법이나 한계를 물으면 method_and_limits를 호출한다."
@@ -156,7 +160,7 @@ def _small_group(r):
     """10명 미만이면 한 곳만 보면 흔들리니, 같은 업종 묶음·지역의 소규모 사업장 평균을 같이 준다."""
     if r["members"] >= 10:
         return None
-    s = filters.small_summary(DATA, [r["group"]], [r["sido"]] if not pd.isna(r["sido"]) else [])
+    s = filters.small_summary(DATA, [r["group"]], [r["sido"]] if not pd.isna(r["sido"]) else [], region_sites=REGION_SITES)
     if not s:
         return None
     return {**s, "avg_text": _won_text(s["avg_manwon"] * 1e4),
@@ -188,9 +192,36 @@ def search_company(query: str, limit: int = 8) -> list[dict]:
 
 
 @mcp.tool()
-def get_salary_estimate(company_key: str) -> dict:
-    """한 회사의 추정 평균 연봉(만 원), 오차 범위, 월 퇴사율, 업종 내 위치, 주의 사항을 돌려준다."""
-    return _summary(_row(company_key))
+def get_salary_estimate(company_key: str, region: str | None = None) -> dict:
+    """한 회사의 추정 평균 연봉(만 원), 오차 범위, 월 퇴사율, 업종 내 위치, 주의 사항을 돌려준다.
+
+    region(시·도 이름, 예: "부산")을 주면 그 지역 사업장만의 추정(region_detail)도 함께 준다.
+    전국 직원을 사업장 한 곳으로 신고한 회사(삼성전자 등)는 지역별로 나눌 수 없어 그렇다고 알려준다.
+    """
+    out = _summary(_row(company_key))
+    if region:
+        out["region_detail"] = _region_detail(company_key, region.strip())
+    return out
+
+
+def _region_detail(company_key, region):
+    sido = next((s for s in set(DATA["sido"].dropna()) if region.startswith(s) or s.startswith(region[:2])), None)
+    if sido is None:
+        return {"note": f"'{region}'은(는) 시·도 이름으로 알아보지 못했다. 서울·부산·경기처럼 시·도로 묻는다."}
+    part = REGION_SITES[(REGION_SITES["company_key"] == company_key) & (REGION_SITES["sido"] == sido)] \
+        if not REGION_SITES.empty else REGION_SITES
+    if part.empty:
+        home = _text(_row(company_key)["sido"])
+        if home == sido:
+            return {"region": sido, "note": f"이 회사는 사업장이 {sido}에만 등록돼 있어 회사 전체 추정이 곧 {sido} 추정이다."}
+        return {"region": sido, "note": f"이 회사는 국민연금에 {sido} 사업장이 따로 등록돼 있지 않다. 직원을 {home or '다른 지역'} "
+                                       "사업장 한 곳으로 몰아 신고하는 회사가 많아서, 지역별로 나눌 수 없고 회사 전체 추정만 있다."}
+    p = part.iloc[0]
+    return {"region": sido, "members": int(p["members"]), "company_members": int(p["company_members"]),
+            "estimated_salary_text": _won_text(p["est_corrected"]),
+            "likely_range_text": f"{_won_text(p['range50_low'])} ~ {_won_text(p['range50_high'])}",
+            "range_text": f"{_won_text(p['range_low'])} ~ {_won_text(p['range_high'])}",
+            "note": "그 지역 사업장의 보험료로 계산한 추정. 보정 모델은 회사 단위로 만들었으므로 지역 간 차이는 보험료 비율로 옮겼다."}
 
 
 @mcp.tool()
