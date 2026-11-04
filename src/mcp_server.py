@@ -27,24 +27,38 @@ DATA = pd.read_parquet(ROOT / "data/processed/serving.parquet")
 META = json.loads((ROOT / "data/processed/serving_meta.json").read_text(encoding="utf-8"))
 CAP_ANNUAL = META["cap_monthly"] * 12
 
-mcp = MCPServer(
-    name="company-salary",
-    title="회사 연봉 추정 (국민연금 기반)",
-    instructions=(
-        "한국 회사의 평균 연봉을 국민연금 가입 사업장 데이터로 추정하는 도구다. "
-        "회사 이름을 받으면 먼저 search_company로 후보를 찾고, 후보가 여럿이면 지역·업종·가입자 수로 "
-        "사용자가 말한 회사가 맞는지 확인한 뒤 get_salary_estimate나 compare_companies를 호출한다. "
-        "국민연금에는 법인명으로 등록돼 있어 브랜드명과 다를 수 있다(예: 토스 → 비바리퍼블리카, 배민 → 우아한형제들). "
-        "검색 결과가 작은 회사뿐이거나 업종이 안 맞으면, 알고 있는 법인명으로 다시 검색한다. "
-        "답할 때는 추정값만 말하지 말고 오차 범위(range)와 신뢰도 메모(notes)를 함께 전한다. "
-        "이 값은 회사 전체 직원의 평균 추정치이며 개인의 연봉이나 직무별 연봉이 아니다. "
-        "추정 방법이나 한계를 물으면 method_and_limits를 호출한다."
-    ),
+# MCP 서버와 직접 만든 에이전트(src/agent.py)가 같은 안내문을 쓴다
+INSTRUCTIONS = (
+    "한국 회사의 평균 연봉을 국민연금 가입 사업장 데이터로 추정하는 도구다. "
+    "회사 이름을 받으면 먼저 search_company로 후보를 찾고, 후보가 여럿이면 지역·업종·가입자 수로 "
+    "사용자가 말한 회사가 맞는지 확인한 뒤 get_salary_estimate나 compare_companies를 호출한다. "
+    "국민연금에는 법인명으로 등록돼 있어 브랜드명과 다를 수 있다(예: 토스 → 비바리퍼블리카, 배민 → 우아한형제들). "
+    "검색 결과가 작은 회사뿐이거나 업종이 안 맞으면, 알고 있는 법인명으로 다시 검색한다. "
+    "답할 때는 추정값만 말하지 말고 오차 범위(range)와 신뢰도 메모(notes)를 함께 전한다. "
+    "금액은 직접 계산하거나 단위를 바꾸지 말고 *_text 필드('1억 171만 원' 꼴)를 그대로 옮겨 쓴다. "
+    "이 값은 회사 전체 직원의 평균 추정치이며 개인의 연봉이나 직무별 연봉이 아니다. "
+    "추정 방법이나 한계를 물으면 method_and_limits를 호출한다."
 )
+
+mcp = MCPServer(name="company-salary", title="회사 연봉 추정 (국민연금 기반)", instructions=INSTRUCTIONS)
 
 
 def _manwon(v):
     return None if pd.isna(v) else int(round(v / 1e4))
+
+
+def _won_text(v):
+    """원 단위 금액 → '1억 171만 원', '9,099만 원', '1억 원'.
+
+    에이전트 평가에서 작은 모델이 10171(만 원)을 '1억 71만 원'으로 옮기다 틀려서, 읽는 형태를 도구가 만들어 준다.
+    """
+    m = _manwon(v)
+    if m is None:
+        return None
+    eok, man = divmod(m, 10_000)
+    if not eok:
+        return f"{man:,}만 원"
+    return f"{eok}억 {man:,}만 원" if man else f"{eok}억 원"
 
 
 def _key(text):
@@ -91,10 +105,17 @@ def _summary(r):
         "region": r["sido"],
         "members": int(r["members"]),
         "estimated_salary_manwon": _manwon(r["est_corrected"]),
+        "estimated_salary_text": _won_text(r["est_corrected"]),
         "range_manwon": [_manwon(r["range_low"]), _manwon(r["range_high"])],
+        "range_text": f"{_won_text(r['range_low'])} ~ {_won_text(r['range_high'])}",
         "range_meaning": "비슷한 상장사 10곳 중 8곳의 실제 평균 급여가 이 범위 안에 있었다",
         "first_estimate_manwon": _manwon(r["est_annual"]),
-        "cap_ratio": round(float(r["cap_ratio"]), 2),
+        # 에이전트 시험에서 모델이 cap_ratio 0.76을 "최고액 납부자 76%"로 오해해서, 이름과 뜻을 풀어서 준다
+        "avg_income_vs_cap_pct": round(float(r["cap_ratio"]) * 100),
+        "avg_income_vs_cap_meaning": (f"이 회사 가입자의 평균 기준소득월액이 보험료 상한(월 {META['cap_monthly'] / 1e4:,.0f}만 원)의 "
+                                      f"{float(r['cap_ratio']) * 100:.0f}% 수준이라는 뜻. 상한에 걸린 직원의 비율이 아니다. "
+                                      "90% 이상이면 고연봉 직원이 많아 1차 추정이 실제보다 낮게 나오기 쉽다."),
+        "cap_monthly_won": META["cap_monthly"],
         "validation_mape_for_similar": round(band.get("mape", float("nan")), 3),
         "monthly_exit_rate": round(float(r["monthly_exit_rate"]), 4),
         "monthly_hires": int(r["hires"]),
@@ -102,6 +123,7 @@ def _summary(r):
         "industry_percentile": None if pd.isna(r["industry_pct"]) else round(float(r["industry_pct"]) * 100),
         "industry_companies": None if pd.isna(r["industry_n"]) else int(r["industry_n"]),
         "dart_actual_salary_manwon": _manwon(r["dart_avg_salary"]),
+        "dart_actual_salary_text": _won_text(r["dart_avg_salary"]),
         "dart_tenure_years": None if pd.isna(r["tenure_years"]) else round(float(r["tenure_years"]), 1),
         "notes": _notes(r),
     }
@@ -166,10 +188,14 @@ def industry_ranking(industry_keyword: str, min_members: int = 100, limit: int =
         "industries": sub["intp_nm"].value_counts().head(5).to_dict(),
         "company_count": int(len(sub)),
         "median_salary_manwon": _manwon(sub["est_corrected"].median()),
+        "median_salary_text": _won_text(sub["est_corrected"].median()),
         "companies": [{"company_key": r.company_key, "name": r.sample_nm, "members": int(r.members),
                        "estimated_salary_manwon": _manwon(r.est_corrected),
+                       "estimated_salary_text": _won_text(r.est_corrected),
                        "range_manwon": [_manwon(r.range_low), _manwon(r.range_high)],
-                       "dart_actual_salary_manwon": _manwon(r.dart_avg_salary)} for r in top.itertuples()],
+                       "range_text": f"{_won_text(r.range_low)} ~ {_won_text(r.range_high)}",
+                       "dart_actual_salary_manwon": _manwon(r.dart_avg_salary),
+                       "dart_actual_salary_text": _won_text(r.dart_avg_salary)} for r in top.itertuples()],
         "range_meaning": "비슷한 상장사 10곳 중 8곳의 실제 평균 급여가 이 범위 안에 있었다. "
                          "자세한 주의 사항은 get_salary_estimate로 본다",
     }
