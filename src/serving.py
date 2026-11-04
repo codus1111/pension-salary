@@ -3,8 +3,9 @@
 - 보정 규칙은 E(혼합): cap_ratio 0.8 이상이면 C(선형 + 업종) 모델, 아니면 1차 추정 그대로.
   학습 데이터(상장사)보다 실제 조회 대상(비상장·중소기업)이 저연봉 쪽에 많아서 E를 쓴다.
 - C 모델은 검증에 쓴 상장사 2,392곳 전체로 다시 학습한다.
-- 오차 범위: 교차검증 예측(E)의 오차를 cap_ratio 구간별로 모아 10~90% 구간을 쓴다.
-  "비슷한 회사 10곳 중 8곳은 실제 연봉이 이 범위 안에 있었다"는 뜻.
+- 오차 범위: 교차검증 예측(E)의 오차를 (cap_ratio 구간 × 회사 규모 300명 기준)별로 모아 분위수를 쓴다.
+  80% 범위(10~90%): "비슷한 회사 10곳 중 8곳은 실제 연봉이 이 범위 안에 있었다"
+  50% 범위(25~75%): "2곳 중 1곳은 이 범위 안에 있었다" — 가장 가능성 높은 범위
 
 결과: data/processed/serving.parquet, data/processed/serving_meta.json
 사용법 (WSL): ~/venvs/pension/bin/python src/serving.py 2025
@@ -26,6 +27,14 @@ CAP = 6_590_000
 NEAR_CAP = 0.8
 CAP_BANDS = [0, 0.6, 0.8, 0.9, 1.01]
 CAP_LABELS = ["0.6 미만", "0.6~0.8", "0.8~0.9", "0.9 이상"]
+MIN_CELL = 50
+SIZE_CUT = 300
+
+
+def size_band(members):
+    return np.where(members >= SIZE_CUT, f"{SIZE_CUT}명 이상", f"{SIZE_CUT}명 미만")
+
+
 SIDO = {"11": "서울", "26": "부산", "27": "대구", "28": "인천", "29": "광주", "30": "대전", "31": "울산",
         "36": "세종", "41": "경기", "42": "강원", "51": "강원", "43": "충북", "44": "충남", "45": "전북",
         "52": "전북", "46": "전남", "47": "경북", "48": "경남", "50": "제주"}
@@ -46,13 +55,25 @@ def main(year):
     cols, model_c = models()["C 선형 + 업종"]
     model_c.fit(train[cols], train["log_y"])
 
-    # 오차 범위: 교차검증 예측으로 구간별 분위수
+    # 오차 범위: 교차검증 예측의 오차를 (cap_ratio 구간 × 회사 규모)별로 모아 분위수를 쓴다.
+    # 규모를 넣은 이유: 같은 cap 구간이어도 300명 이상 회사는 80% 범위 폭이 22~38%, 미만은 32~63%로 달랐다.
+    # 한 칸에 회사가 MIN_CELL보다 적으면 cap 구간만으로 계산한 값을 쓴다.
     oof = pd.read_parquet(PROC / f"model_oof_{year}.parquet")
-    err = oof["E 혼합(천장 근처만 C)"] / oof["dart_avg_salary"] - 1
-    band = pd.cut(oof["cap_ratio"], CAP_BANDS, labels=CAP_LABELS, right=False)
-    intervals = {b: {"q10": float(err[band == b].quantile(0.1)), "q90": float(err[band == b].quantile(0.9)),
-                     "mape": float(err[band == b].abs().mean()), "n": int((band == b).sum())}
-                 for b in CAP_LABELS}
+    members = pd.read_parquet(PROC / f"compare_{year}.parquet", columns=["corp_code", "nps_members"])
+    oof = oof.merge(members, on="corp_code", how="left")
+    oof["err"] = oof["E 혼합(천장 근처만 C)"] / oof["dart_avg_salary"] - 1
+    oof["cap_band"] = pd.cut(oof["cap_ratio"], CAP_BANDS, labels=CAP_LABELS, right=False).astype(str)
+    oof["size_band"] = size_band(oof["nps_members"])
+
+    def summary(e):
+        return {"q10": float(e.quantile(0.1)), "q90": float(e.quantile(0.9)),
+                "q25": float(e.quantile(0.25)), "q75": float(e.quantile(0.75)),
+                "mape": float(e.abs().mean()), "n": int(len(e))}
+
+    intervals = {b: summary(g["err"]) for b, g in oof.groupby("cap_band")}
+    for (b, s), g in oof.groupby(["cap_band", "size_band"]):
+        if len(g) >= MIN_CELL:
+            intervals[f"{b}|{s}"] = summary(g["err"])
 
     sites = pd.read_parquet(PROC / "sites.parquet", columns=["company_key", "intp_nm", "intp_cd", "sido_cd"])
     code = sites.dropna(subset=["intp_cd"]).groupby("intp_nm")["intp_cd"].agg(lambda s: s.mode().iloc[0])
@@ -67,10 +88,13 @@ def main(year):
     pred_c = np.exp(model_c.predict(comp[cols]))
     comp["est_corrected"] = np.where(comp["cap_ratio"] >= NEAR_CAP, pred_c, comp["est_annual"])
     comp["cap_band"] = pd.cut(comp["cap_ratio"], CAP_BANDS, labels=CAP_LABELS, right=False).astype(str)
-    comp["range_low"] = [p / (1 + intervals[b]["q90"]) if b in intervals else np.nan
-                         for p, b in zip(comp["est_corrected"], comp["cap_band"])]
-    comp["range_high"] = [p / (1 + intervals[b]["q10"]) if b in intervals else np.nan
-                          for p, b in zip(comp["est_corrected"], comp["cap_band"])]
+    comp["size_band"] = size_band(comp["members"])
+    # 실제 = 추정 ÷ (1 + 오차) 이므로, 오차 분위수가 클수록 범위의 아래쪽이 된다
+    cell = [f"{b}|{s}" if f"{b}|{s}" in intervals else b for b, s in zip(comp["cap_band"], comp["size_band"])]
+    comp["interval_key"] = cell
+    for col, q in [("range_low", "q90"), ("range_high", "q10"), ("range50_low", "q75"), ("range50_high", "q25")]:
+        comp[col] = [p / (1 + intervals[c][q]) if c in intervals else np.nan
+                     for p, c in zip(comp["est_corrected"], cell)]
 
     # 같은 업종(가입자 10명 이상) 안에서 몇 % 위치인지
     big = comp["members"] >= 10
@@ -86,7 +110,8 @@ def main(year):
 
     keep = ["company_key", "key_nm", "base_nm", "sample_nm", "bzowr_no6",
             "intp_nm", "sido", "n_sites", "members", "hires", "exits", "monthly_exit_rate", "est_annual",
-            "cap_ratio", "cap_band", "est_corrected", "range_low", "range_high", "industry_pct", "industry_n",
+            "cap_ratio", "cap_band", "size_band", "interval_key", "est_corrected", "range_low", "range_high",
+            "range50_low", "range50_high", "industry_pct", "industry_n",
             "corp_name", "dart_avg_salary", "dart_employees", "tenure_years"]
     comp[keep].to_parquet(PROC / "serving.parquet", index=False)
 
@@ -95,7 +120,9 @@ def main(year):
     (PROC / "serving_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"조회용 회사 {len(comp):,}곳 저장. 상장사 실제 값 붙은 곳 {comp['dart_avg_salary'].notna().sum():,}곳")
     for b, v in intervals.items():
-        print(f"  {b}: 오차 10~90% 구간 {v['q10']:+.0%} ~ {v['q90']:+.0%}, MAPE {v['mape']:.1%} ({v['n']}곳)")
+        w80 = (1 / (1 + v["q10"]) - 1 / (1 + v["q90"])) * 100
+        w50 = (1 / (1 + v["q25"]) - 1 / (1 + v["q75"])) * 100
+        print(f"  {b}: 80% 범위 폭 추정값의 {w80:.0f}%, 50% 범위 폭 {w50:.0f}%, MAPE {v['mape']:.1%} ({v['n']}곳)")
 
 
 if __name__ == "__main__":

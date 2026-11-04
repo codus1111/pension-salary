@@ -34,7 +34,8 @@ INSTRUCTIONS = (
     "사용자가 말한 회사가 맞는지 확인한 뒤 get_salary_estimate나 compare_companies를 호출한다. "
     "국민연금에는 법인명으로 등록돼 있어 브랜드명과 다를 수 있다(예: 토스 → 비바리퍼블리카, 배민 → 우아한형제들). "
     "검색 결과가 작은 회사뿐이거나 업종이 안 맞으면, 알고 있는 법인명으로 다시 검색한다. "
-    "답할 때는 추정값만 말하지 말고 오차 범위(range)와 신뢰도 메모(notes)를 함께 전한다. "
+    "답할 때는 추정값만 말하지 말고 오차 범위와 신뢰도 메모(notes)를 함께 전한다. 범위는 두 단계로 말한다: "
+    "'가장 가능성 높은 범위(2곳 중 1곳)'는 likely_range_text, '넓게 보면(10곳 중 8곳)'은 range_text. "
     "금액은 직접 계산하거나 단위를 바꾸지 말고 *_text 필드('1억 171만 원' 꼴)를 그대로 옮겨 쓴다. "
     "이 값은 회사 전체 직원의 평균 추정치이며 개인의 연봉이나 직무별 연봉이 아니다. "
     "추정 방법이나 한계를 물으면 method_and_limits를 호출한다."
@@ -59,6 +60,11 @@ def _won_text(v):
     if not eok:
         return f"{man:,}만 원"
     return f"{eok}억 {man:,}만 원" if man else f"{eok}억 원"
+
+
+def _text(v):
+    """빈 값(NaN)은 None으로. NaN은 JSON에 없는 값이라 모델 API가 요청을 거절한다."""
+    return None if pd.isna(v) else v
 
 
 def _key(text):
@@ -97,18 +103,22 @@ def _notes(r):
 
 
 def _summary(r):
-    band = META["intervals"].get(r["cap_band"], {})
+    band = META["intervals"].get(r["interval_key"], {})
     return {
         "company_key": r["company_key"],
         "name": r["sample_nm"],
-        "industry": r["intp_nm"],
-        "region": r["sido"],
+        "industry": _text(r["intp_nm"]),
+        "region": _text(r["sido"]),
         "members": int(r["members"]),
         "estimated_salary_manwon": _manwon(r["est_corrected"]),
         "estimated_salary_text": _won_text(r["est_corrected"]),
         "range_manwon": [_manwon(r["range_low"]), _manwon(r["range_high"])],
         "range_text": f"{_won_text(r['range_low'])} ~ {_won_text(r['range_high'])}",
-        "range_meaning": "비슷한 상장사 10곳 중 8곳의 실제 평균 급여가 이 범위 안에 있었다",
+        "range_meaning": "80% 범위: 비슷한 상장사(같은 소득 구간·비슷한 규모) 10곳 중 8곳의 실제 평균 급여가 이 안에 있었다",
+        "likely_range_manwon": [_manwon(r["range50_low"]), _manwon(r["range50_high"])],
+        "likely_range_text": f"{_won_text(r['range50_low'])} ~ {_won_text(r['range50_high'])}",
+        "likely_range_meaning": "50% 범위: 2곳 중 1곳이 이 안에 있었다. 가장 가능성 높은 범위",
+        "range_basis": r["interval_key"],
         "first_estimate_manwon": _manwon(r["est_annual"]),
         # 에이전트 시험에서 모델이 cap_ratio 0.76을 "최고액 납부자 76%"로 오해해서, 이름과 뜻을 풀어서 준다
         "avg_income_vs_cap_pct": round(float(r["cap_ratio"]) * 100),
@@ -148,7 +158,7 @@ def search_company(query: str, limit: int = 8) -> list[dict]:
     hit = pd.concat([hit, prefix[~prefix["company_key"].isin(hit["company_key"])]])
     hit["tiny"] = (hit["members"] < 10).astype(int)
     hit = hit.sort_values(["tiny", "rank", "members"], ascending=[True, True, False]).head(max(1, min(limit, 20)))
-    return [{"company_key": r.company_key, "name": r.sample_nm, "industry": r.intp_nm, "region": r.sido,
+    return [{"company_key": r.company_key, "name": r.sample_nm, "industry": _text(r.intp_nm), "region": _text(r.sido),
              "members": int(r.members), "listed": not pd.isna(r.dart_avg_salary)} for r in hit.itertuples()]
 
 
@@ -194,9 +204,10 @@ def industry_ranking(industry_keyword: str, min_members: int = 100, limit: int =
                        "estimated_salary_text": _won_text(r.est_corrected),
                        "range_manwon": [_manwon(r.range_low), _manwon(r.range_high)],
                        "range_text": f"{_won_text(r.range_low)} ~ {_won_text(r.range_high)}",
+                       "likely_range_text": f"{_won_text(r.range50_low)} ~ {_won_text(r.range50_high)}",
                        "dart_actual_salary_manwon": _manwon(r.dart_avg_salary),
                        "dart_actual_salary_text": _won_text(r.dart_avg_salary)} for r in top.itertuples()],
-        "range_meaning": "비슷한 상장사 10곳 중 8곳의 실제 평균 급여가 이 범위 안에 있었다. "
+        "range_meaning": "range_text는 80% 범위(10곳 중 8곳), likely_range_text는 50% 범위(2곳 중 1곳). "
                          "자세한 주의 사항은 get_salary_estimate로 본다",
     }
 
@@ -210,12 +221,13 @@ def method_and_limits() -> dict:
             "1차 추정 = 당월 고지금액 ÷ 가입자 수 ÷ 보험료율(9.5%) × 12",
             f"보험료에는 상한이 있어 1차 추정은 연 {CAP_ANNUAL / 1e4:,.0f}만 원을 넘을 수 없다",
             f"평균 소득이 상한의 {int(META['near_cap'] * 100)}% 이상인 회사는 선형 회귀(업종 포함)로 보정",
-            "오차 범위는 상장사 교차검증 결과의 10~90% 구간",
+            "오차 범위는 상장사 교차검증 결과를 (평균 소득 구간 × 회사 규모 300명 기준)별로 나눈 분위수: "
+            "80% 범위(10~90%)와 50% 범위(25~75%)",
         ],
         "validation": {
             "companies": META["train_companies"],
             "mape_first_estimate": 0.146, "mape_corrected_model": 0.111,
-            "by_cap_band": META["intervals"],
+            "by_band": META["intervals"],
         },
         "limits": [
             "회사 전체 평균이다. 직무·직급·개인 연봉이 아니다",

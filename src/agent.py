@@ -12,6 +12,7 @@ Claude 앱 같은 완성된 에이전트에 MCP 도구를 붙이는 대신, 에�
 
 사용법 (WSL)
   ~/venvs/pension/bin/python src/agent.py "토스 평균 연봉 어느 정도야?"
+  ~/venvs/pension/bin/python src/agent.py --chat          # 대화 모드 (이어서 질문)
   ~/venvs/pension/bin/python src/agent.py --list-models
 API 키는 .env 또는 .env.txt의 GEMINI_API_KEY에서 읽는다. 모델은 --model 또는 GEMINI_MODEL로 바꾼다
 (지정하지 않으면 gemini-3.5-flash, 바쁘면 gemini-3.5-flash-lite).
@@ -185,6 +186,39 @@ class GeminiProvider:
 PROVIDERS = {"gemini": GeminiProvider}
 
 
+def chat(provider, quiet=False):
+    """터미널에서 질문을 이어서 주고받는다. 앞의 대화를 기억한다."""
+    print("회사 연봉 에이전트입니다. 회사 이름이나 비교하고 싶은 회사를 물어보세요.")
+    print("예: 토스 평균 연봉 어느 정도야? / 네이버랑 카카오 비교해줘 / 이 추정 얼마나 정확해?")
+    print("끝내려면 '끝'이나 exit를 입력하세요. 처음부터 다시 하려면 '새로'를 입력하세요.\n")
+    history = []
+    while True:
+        try:
+            q = input("질문> ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            break
+        if not q:
+            continue
+        if q in ("끝", "exit", "quit", "q"):
+            break
+        if q == "새로":
+            history = []
+            print("대화를 새로 시작합니다.\n")
+            continue
+        t0, before = time.time(), len(history)
+        try:
+            out = ask(q, provider, history=history, log=None if quiet else (lambda s: print("  " + s, flush=True)))
+        except Exception as e:  # 한도 초과 등: 대화는 끝내지 않고 알려준다
+            print(f"\n잠시 답을 받지 못했어요: {str(e)[:150]}\n")
+            del history[before:]  # 답을 못 받은 질문과 그 도중 기록은 뺀다
+            continue
+        tools_used = " → ".join(t["tool"] for t in out["trace"]) or "없음"
+        print(f"\n{out['answer']}\n")
+        print(f"  (사용한 도구: {tools_used} | {time.time() - t0:.0f}초 | 모델 {provider.model})\n")
+    print("대화를 마칩니다.")
+
+
 def run_tool(name, args):
     if name not in TOOL_FUNCS:
         return {"error": f"없는 도구: {name}"}
@@ -192,17 +226,30 @@ def run_tool(name, args):
         result = TOOL_FUNCS[name](**args)
     except Exception as e:  # 도구 오류도 모델에게 알려서 스스로 고치게 한다 (예: 잘못된 company_key)
         return {"error": str(e)}
-    # pandas·numpy 숫자를 일반 JSON 값으로 바꿔 모델 API로 보낼 수 있게 한다
-    return json.loads(json.dumps(result, ensure_ascii=False,
-                                 default=lambda o: o.item() if hasattr(o, "item") else str(o)))
+    # pandas·numpy 값을 일반 JSON 값으로 바꿔 모델 API로 보낼 수 있게 한다.
+    # NaN은 JSON에 없는 값이라 그대로 보내면 400 오류가 난다 ("현대자동차" 검색 결과의 빈 업종명) → None으로
+    return _clean(json.loads(json.dumps(result, ensure_ascii=False,
+                                        default=lambda o: o.item() if hasattr(o, "item") else str(o))))
 
 
-def ask(question, provider, max_steps=MAX_STEPS, log=None):
+def _clean(v):
+    if isinstance(v, float) and v != v:  # NaN
+        return None
+    if isinstance(v, dict):
+        return {k: _clean(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_clean(x) for x in v]
+    return v
+
+
+def ask(question, provider, max_steps=MAX_STEPS, log=None, history=None):
     """질문 하나를 끝까지 처리한다. 답, 도구 호출 기록, 사용 토큰을 돌려준다.
 
     log를 주면 단계마다 진행 상황을 바로 알린다 (예: log=print).
+    history에 이전 대화 목록을 주면 이어서 묻는다 ("그럼 카카오는?"). 목록은 이 함수 안에서 늘어난다.
     """
-    history = [Message(role="user", text=question)]
+    history = history if history is not None else []
+    history.append(Message(role="user", text=question))
     trace, tokens = [], {"input": 0, "output": 0, "model_calls": 0}
     for step in range(1, max_steps + 1):
         t0 = time.time()
@@ -233,11 +280,16 @@ def main():
     p.add_argument("--provider", default="gemini", choices=PROVIDERS)
     p.add_argument("--model")
     p.add_argument("--list-models", action="store_true")
+    p.add_argument("--chat", action="store_true", help="대화 모드: 질문을 이어서 할 수 있다")
+    p.add_argument("--quiet", action="store_true", help="단계별 진행 상황을 숨긴다")
     a = p.parse_args()
 
     provider = PROVIDERS[a.provider](a.model)
     if a.list_models:
         print("\n".join(provider.list_models()))
+        return
+    if a.chat:
+        chat(provider, quiet=a.quiet)
         return
     if not a.question:
         p.error("질문을 입력하세요")

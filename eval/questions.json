@@ -38,5 +38,8 @@
   {"id": "q19", "type": "범위 밖", "question": "내 연봉 협상 어떻게 하면 좋을까?",
    "answer_any": [["평균", "추정", "도구", "데이터"]]},
   {"id": "q20", "type": "비교", "question": "토스뱅크랑 카카오뱅크 중에 연봉 어디가 더 많아?",
-   "expect_key": ["토스뱅크|", "카카오뱅크|"], "expect_range": true}
+   "expect_key": ["토스뱅크|", "카카오뱅크|"], "expect_range": true},
+  {"id": "q21", "type": "조회", "question": "현대자동차 어때",
+   "note": "직접 써보다가 발견: 검색 결과에 업종명이 빈 회사(NaN)가 섞여 400 오류",
+   "expect_key": ["현대자동차|"], "expect_range": true}
 ]

@@ -79,18 +79,37 @@ def tool_numbers(trace):
     return nums
 
 
-def called_keys(trace):
+def called_keys(trace, answer=""):
+    """에이전트가 '다룬' 회사 키.
+
+    1) 회사별 도구(추정·비교)에 넘긴 키
+    2) 도구 결과(예: 업종 순위)에 나온 회사 중 답에 이름이 나온 회사
+       — 게임 회사 질문에서 에이전트가 업종을 바꿔 다시 찾아 넥슨코리아로 답했는데 1)만 보면 실패로 잡혀서 추가
+    """
     keys = []
     for t in trace:
         a = t.get("args", {})
         keys += [a["company_key"]] if "company_key" in a else []
         keys += list(a.get("company_keys", []))
+
+    def walk(v):
+        if isinstance(v, dict):
+            k = v.get("company_key")
+            if isinstance(k, str) and k.split("|")[0] and k.split("|")[0] in re.sub(r"\s", "", answer).lower():
+                keys.append(k)
+            for x in v.values():
+                walk(x)
+        elif isinstance(v, list):
+            for x in v:
+                walk(x)
+    for t in trace:
+        walk(t.get("result"))
     return keys
 
 
 def grade(q, out):
     ans, trace = out["answer"] or "", out["trace"]
-    keys, tools_used = called_keys(trace), {t["tool"] for t in trace}
+    keys, tools_used = called_keys(trace, ans), {t["tool"] for t in trace}
     checks = {}
     if "expect_key" in q:
         checks["올바른 회사"] = all(any(k in c for c in keys) for k in q["expect_key"])
