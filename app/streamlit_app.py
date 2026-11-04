@@ -9,6 +9,7 @@ src/agent.py의 에이전트(직접 만든 반복 구조 + 도구 5개)를 그�
 import base64
 import html
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -96,7 +97,7 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 [class*="st-key-sg"] button > div {{ margin-top:18px; width:100%; justify-content:flex-start; text-align:left; }}
 [class*="st-key-sg"] button p {{ text-align:left; }}
 .st-key-reset button {{ border-radius:12px; border:1px solid #dbe6f4; color:#24456c; font-size:12px; }}
-.s-user {{ margin:6px 0 16px 12%; background:#edf4ff; border:1px solid #e6eef8; border-radius:16px; padding:14px 18px;
+.s-user {{ width:fit-content; max-width:75%; margin:6px 0 16px auto; background:#edf4ff; border:1px solid #e6eef8; border-radius:16px 16px 4px 16px; padding:14px 18px;
            font-size:14px; line-height:1.8; }}
 .s-user b, .s-who {{ display:block; color:#216aca; font-size:11px; font-weight:700; margin-bottom:4px; }}
 [class*="st-key-answer"] p, [class*="st-key-answer"] li {{ font-size:14.5px; line-height:1.8; }}
@@ -137,7 +138,16 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .rc-e {{ width:14px !important; height:14px !important; top:3px !important; margin-left:-7px; background:#0868ec;
          transform:rotate(45deg); border-radius:2px !important; box-shadow:0 0 0 2px white; }}
 .rc-d {{ width:4px; margin-left:-2px; top:-4px !important; height:28px !important; background:#f08c2e; border-radius:2px !important; }}
-.rc-val {{ font-size:12px; color:#62758d; font-variant-numeric:tabular-nums; }}
+.rc-val {{ font-size:12px; color:#62758d; font-variant-numeric:tabular-nums; display:flex; flex-direction:column; line-height:1.3; }}
+.rc-val .v-e {{ color:#0868ec; }}
+.rc-val .v-d {{ color:#d9731a; }}
+.rc-legend {{ display:flex; flex-wrap:wrap; gap:6px 18px; font-size:12px; color:#3a5170; margin:0 0 10px; }}
+.rc-legend span {{ display:inline-flex; align-items:center; gap:6px; }}
+.rc-legend i {{ display:inline-block; }}
+.rc-legend .rc-unit {{ margin-left:auto; color:#8193a8; }}
+.k-e {{ width:10px; height:10px; background:#0868ec; transform:rotate(45deg); border-radius:1px; }}
+.k-l {{ width:22px; height:10px; background:#8dbaf5; border-radius:4px; }}
+.k-d {{ width:4px; height:14px; background:#f08c2e; border-radius:2px; }}
 .rc-axis {{ min-height:22px; }}
 .rc-ticks {{ background:none; height:16px; }}
 .rc-ticks span {{ transform:translateX(-50%); font-size:11px; color:#8193a8; white-space:nowrap; height:auto; }}
@@ -169,7 +179,7 @@ header[data-testid="stHeader"] {{ background:transparent; }}
   .s-hero h1 {{ font-size:30px; letter-spacing:-1.3px; }}
   .st-key-workspace {{ padding:22px 16px; }}
   .s-cards {{ grid-template-columns:repeat(2,minmax(0,1fr)); }}
-  .s-user {{ margin-left:0; }}
+  .s-user {{ max-width:88%; }}
   /* 좁은 화면에서도 검색창(입력칸+버튼)과 제목줄(제목+초기화)은 한 줄로 */
   .st-key-hero [data-testid="stHorizontalBlock"], .st-key-whead [data-testid="stHorizontalBlock"] {{ flex-wrap:nowrap; }}
   .st-key-hero [data-testid="stColumn"]:first-child, .st-key-whead [data-testid="stColumn"]:first-child {{ flex:1 1 auto; min-width:0; width:auto; }}
@@ -246,6 +256,7 @@ agent, provider = load_agent()
 
 
 filters, DATA, REGION = agent.tools.filters, agent.tools.DATA, agent.tools.REGION_SITES  # 에이전트 도구와 같은 표
+import evaluate  # noqa: E402  답 속 금액 대조에 평가 채점기의 함수를 그대로 쓴다
 
 
 # ---------- 답변 아래 그림: 도구 결과에서 회사별 추정값·범위를 모아 그린다 ----------
@@ -279,29 +290,91 @@ def range_chart(rows):
     rows = sorted([r for r in rows if r.get("estimated_salary_manwon")], key=lambda r: -r["estimated_salary_manwon"])
     if not rows:
         return None
+    # 처음엔 넓은 범위(80%)·가능성 높은 범위(50%)를 둘 다 그렸더니 한눈에 안 들어온다는 의견이 있어서,
+    # 막대는 '예상 범위(50%)' 하나만 그리고 80% 범위는 마우스를 올렸을 때 글로만 보여준다
     pair = lambda r, k: (r.get(k) or [None, None])  # noqa: E731
-    vals = [v for r in rows for v in (*pair(r, "range_manwon"), r["estimated_salary_manwon"],
+    vals = [v for r in rows for v in (*pair(r, "likely_range_manwon"), r["estimated_salary_manwon"],
                                       r.get("dart_actual_salary_manwon")) if v]
-    step = 1000 if max(vals) - min(vals) > 3000 else 500
+    span = max(vals) - min(vals)
+    step = 1000 if span > 3000 else 500 if span > 1000 else 200
     lo, hi = (min(vals) // step) * step, -(-max(vals) // step) * step
+    hi = hi if hi > lo else lo + step
     pos = lambda v: (v - lo) / (hi - lo) * 100  # noqa: E731
-    lines = []
+    lines, any_dart = [], False
     for r in rows:
         (a, b), (c, d) = pair(r, "range_manwon"), pair(r, "likely_range_manwon")
         est, dart = r["estimated_salary_manwon"], r.get("dart_actual_salary_manwon")
-        tip = f"추정 {est:,}만 원" + (f" · 가능성 높은 범위 {c:,}~{d:,}만" if c else "") + (f" · 공시 {dart:,}만" if dart else "")
-        bars = (f'<span class="rc-w" style="left:{pos(a):.1f}%;width:{pos(b) - pos(a):.1f}%"></span>' if a else "") + \
-               (f'<span class="rc-l" style="left:{pos(c):.1f}%;width:{pos(d) - pos(c):.1f}%"></span>' if c else "") + \
+        any_dart |= bool(dart)
+        tip = f"추정 {est:,}만 원" + (f" · 예상 범위 {c:,}~{d:,}만" if c else "") + \
+              (f" · 넓게 보면 {a:,}~{b:,}만" if a else "") + (f" · 실제 공시 {dart:,}만" if dart else "")
+        bars = (f'<span class="rc-l" style="left:{pos(c):.1f}%;width:{pos(d) - pos(c):.1f}%"></span>' if c else "") + \
                f'<span class="rc-e" style="left:{pos(est):.1f}%"></span>' + \
                (f'<span class="rc-d" style="left:{pos(dart):.1f}%"></span>' if dart else "")
+        val = f'<b class="v-e">{est:,}</b>' + (f'<b class="v-d">{dart:,}</b>' if dart else "")
         lines.append(f'<div class="rc-row" title="{html.escape(tip)}"><div class="rc-name">{html.escape(r["name"])}</div>'
-                     f'<div class="rc-track">{bars}</div><div class="rc-val">{est:,}</div></div>')
+                     f'<div class="rc-track">{bars}</div><div class="rc-val">{val}</div></div>')
     n_ticks = int((hi - lo) / step)
     skip = max(1, -(-n_ticks // 6))
     ticks = "".join(f'<span style="left:{pos(lo + i * step):.1f}%">{lo + i * step:,}</span>'
                     for i in range(0, n_ticks + 1, skip))
-    return (f'<div class="rc">{"".join(lines)}<div class="rc-row rc-axis"><div class="rc-name"></div>'
-            f'<div class="rc-track rc-ticks">{ticks}</div><div class="rc-val">만 원</div></div></div>')
+    legend = ('<div class="rc-legend"><span><i class="k-e"></i>추정 연봉</span>'
+              '<span><i class="k-l"></i>예상 범위 (비슷한 회사 2곳 중 1곳이 이 안)</span>'
+              + ('<span><i class="k-d"></i>실제 공시 연봉 (상장사)</span>' if any_dart else "")
+              + '<span class="rc-unit">단위: 만 원</span></div>')
+    return (f'<div class="rc">{legend}{"".join(lines)}<div class="rc-row rc-axis"><div class="rc-name"></div>'
+            f'<div class="rc-track rc-ticks">{ticks}</div><div class="rc-val"></div></div></div>')
+
+
+BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
+
+
+def grounded(a, tol, nums, main):
+    """답 속 금액이 도구 결과로 설명되는지. 평가보다 너그럽게 본다 (사용자에게 괜한 경고를 띄우지 않도록).
+
+    - 도구 결과 금액 그대로 (±tol)
+    - 회사 연봉끼리의 차이: "네이버가 약 2,800만 원 높다"(공시 14,096 - 11,206 = 2,890)처럼 AI가 계산해 말한 값.
+      범위 끝값까지 넣으면 차이 조합이 너무 많아 아무 숫자나 통과하므로, 추정·공시 연봉(main)끼리만 본다
+    - '약 …'·'1.4억'처럼 줄여 쓴 금액(tol > 1)은 4%까지 허용
+    """
+    slack = max(tol, a * 0.04) if tol > 1 else tol
+    if any(abs(a - n) <= slack for n in nums):
+        return True
+    main = sorted(main)
+    return any(abs(a - abs(x - y)) <= slack for i, x in enumerate(main) for y in main[i + 1:])
+
+
+def main_salaries(trace):
+    """도구 결과에서 회사별 추정 연봉·공시 연봉만 모은다 (차이 계산 허용용)."""
+    out = set()
+
+    def walk(v):
+        if isinstance(v, dict):
+            for k, x in v.items():
+                if k in ("estimated_salary_manwon", "dart_actual_salary_manwon") and isinstance(x, (int, float)):
+                    out.add(int(x))
+                else:
+                    walk(x)
+        elif isinstance(v, list):
+            for x in v:
+                walk(x)
+    for t in trace:
+        walk(t.get("result"))
+    return out
+
+
+def show_answer(text, unchecked=()):
+    """AI 답변을 그린다.
+
+    - 굵은 글씨: Markdown은 '**…(…)**의'처럼 닫는 ** 앞이 괄호, 뒤가 한글이면 굵게 인식하지 못해 별표가 그대로 보였다.
+      그래서 **…**를 직접 <b>로 바꾼다 (다른 HTML은 이스케이프해서 그대로 글자로 보이게)
+    - 숫자 대조: 답 속 금액이 도구 결과에 없으면(옮겨 적다 '1억'을 빠뜨린 경우 등) 경고를 단다
+    """
+    safe = BOLD_RE.sub(r"<b>\1</b>", html.escape(text or "", quote=False))
+    st.markdown(safe, unsafe_allow_html=True)
+    if unchecked:
+        shown = ", ".join(f"{a:,}만 원" for a in unchecked[:3])
+        st.warning(f"글 속 금액 일부({shown})가 데이터와 맞지 않아요. AI가 옮겨 적다 틀렸을 수 있어요. "
+                   "아래 카드와 그래프의 숫자는 데이터에서 바로 가져온 값이라 정확해요.", icon="⚠️")
 
 
 def card(label, value, sub="", main=False):
@@ -325,9 +398,10 @@ def single_cards(r):
     year = (to or {}).get("year_2025")
     if year:  # 2025년 12개월 실제 합계가 있으면 그걸 먼저 보여준다
         med = year.get("industry_median_annual_exit_rate_pct")
-        second.append(card("1년 퇴사율 (2025년)", f"{year['annual_exit_rate_pct']}%",
-                           f"업종 중간값 {med}% · 퇴사 {year['exits_12m']:,}명" if med is not None else
-                           f"퇴사 {year['exits_12m']:,}명 · 직원이 적어 참고만"))
+        p = year["annual_exit_rate_pct"]
+        second.append(card("1년 퇴사율 (2025년)", f"{p}%",
+                           (f"100명 중 {p}명꼴로 나감" if p <= 100 else "단기직이 여러 번 들고 남 (100% 넘음)")
+                           + (f" · 업종 중간값 {med}%" if med is not None else " · 직원이 적어 참고만")))
         if year["members_jan"] > 0 and year["members_dec"] > 0:
             diff = year["members_dec"] - year["members_jan"]
             second.append(card("1년 직원 수 변화", f"{diff:+,}명",
@@ -380,13 +454,9 @@ def show_visuals(kind, rows):
     chart = range_chart(rows[:10])
     if chart is not None:
         st.markdown(chart, unsafe_allow_html=True)
-        legend = "◆ 추정값 · 진한 막대: 가능성 높은 범위(50%) · 연한 막대: 넓은 범위(80%)"
-        if any(r.get("dart_actual_salary_manwon") for r in rows):
-            legend += " · 주황 선: 실제 공시 연봉"
-        st.caption(legend)
         if any(r.get("likely_range_manwon") and r["estimated_salary_manwon"] < r["likely_range_manwon"][0] for r in rows):
-            st.caption("💡 ◆가 범위보다 왼쪽에 있으면: 연봉이 높은 회사는 국민연금 상한 때문에 추정이 실제보다 낮게 나오는 "
-                       "경향이 있어요. 비슷한 상장사들의 실제 연봉은 범위 쪽에 더 많았어요.")
+            st.caption("💡 파란 마름모가 막대보다 왼쪽에 있으면: 연봉이 높은 회사는 국민연금 상한 때문에 추정이 실제보다 "
+                       "낮게 나오는 경향이 있어서, 실제 연봉은 막대(예상 범위) 쪽일 가능성이 더 커요.")
     if kind == "single":
         similar_block(rows[0])
 
@@ -425,7 +495,7 @@ with st.container(key="workspace"):
         else:
             with st.container(key=f"answer{i}"):
                 st.markdown('<span class="s-who">회사 연봉 AI</span>', unsafe_allow_html=True)
-                st.markdown(m["content"])
+                show_answer(m["content"], m.get("unchecked", []))
                 show_visuals(m.get("kind"), m.get("rows", []))
                 if m.get("tools"):
                     st.caption("사용한 도구: " + " → ".join(m["tools"]))
@@ -449,12 +519,17 @@ with st.container(key="workspace"):
             if out:
                 tools = [t["tool"] for t in out["trace"]]
                 kind, rows = collect(out["trace"])
-                st.markdown(out["answer"])
+                # 이 대화에서 도구가 돌려준 금액 전부와 답 속 금액을 대조한다 (평가 채점기와 같은 함수)
+                st.session_state.setdefault("tool_nums", set()).update(evaluate.tool_numbers(out["trace"]))
+                st.session_state.setdefault("main_nums", set()).update(main_salaries(out["trace"]))
+                unchecked = [a for a, tol in evaluate.amounts_in(out["answer"] or "")
+                             if not grounded(a, tol, st.session_state["tool_nums"], st.session_state["main_nums"])]
+                show_answer(out["answer"], unchecked)
                 show_visuals(kind, rows)
                 if tools:
                     st.caption("사용한 도구: " + " → ".join(tools))
                 st.session_state["messages"].append({"role": "assistant", "content": out["answer"], "tools": tools,
-                                                     "kind": kind, "rows": rows})
+                                                     "kind": kind, "rows": rows, "unchecked": unchecked})
 
     st.markdown('<p class="s-caption" style="font-size:11px;margin-top:14px">회사 전체의 평균 추정치예요. '
                 '신입·직무·개인 연봉과 다르며, 답변의 오차 범위도 함께 확인해 주세요.</p>', unsafe_allow_html=True)

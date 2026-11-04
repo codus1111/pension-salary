@@ -48,6 +48,8 @@ INSTRUCTIONS = (
     "'가장 가능성 높은 범위(2곳 중 1곳)'는 likely_range_text, '넓게 보면(10곳 중 8곳)'은 range_text. "
     "금액은 직접 계산하거나 단위를 바꾸지 말고 *_text 필드('1억 171만 원' 꼴)를 그대로 옮겨 쓴다. "
     "업종 안의 위치는 industry_position_text를 그대로 쓴다. "
+    f"보험료 상한은 기억으로 쓰지 말고 지금 값(기준소득월액 월 {META['cap_monthly'] / 1e4:,.0f}만 원, 연 {CAP_ANNUAL / 1e4:,.0f}만 원)만 쓴다. "
+    "정확도를 물으면 method_and_limits의 accuracy_text 숫자를 꼭 넣는다. "
     "데이터 기준: 추정 연봉은 국민연금 2026년 9월 자료(2025년 소득 반영), 검증·공시 연봉은 DART 2025 사업연도 사업보고서"
     "(대부분 2025.1.1~12.31), 1년 퇴사율은 국민연금 2025년 1~12월. 기준 시점을 물으면 이대로 답한다. "
     "답에는 confidence(정확도 신호등)의 light와 reason을 꼭 넣고, 퇴사·분위기를 물으면 turnover.year_2025의 compare_text와 change_text(2025년 12개월)를 먼저 쓰고, "
@@ -361,8 +363,16 @@ def industry_ranking(industry_keyword: str, min_members: int = 100, limit: int =
         note = (f"이 업종 키워드로 잡힌 회사가 {len(sub)}곳뿐이다. 업종은 국민연금 신고 분류라, 같은 업계의 큰 회사가 "
                 "다른 업종(예: 응용 소프트웨어 개발)으로 등록돼 있을 수 있다. 사용자가 생각하는 대표 회사들을 "
                 "search_company로 찾아 compare_companies로 비교하는 편이 낫다.")
+    # 대형 게임사는 '게임'이 아니라 '응용 소프트웨어 개발 및 공급업'으로 등록돼 있어 게임 키워드에 안 잡힌다
+    # (평가 q13: 회사가 10곳 넘게 잡혀 위 안내가 안 나가자, 에이전트가 작은 게임사만 답했다)
+    if "게임" in industry_keyword:
+        note = ((note + " ") if note else "") + (
+            "대형 게임사(넥슨코리아, 크래프톤, 엔씨, 넷마블, 스마일게이트)는 '응용 소프트웨어 개발 및 공급업'으로 등록돼 "
+            "이 결과에 없다. 게임 회사를 물으면 이 회사들도 search_company로 찾아 compare_companies로 함께 비교한다.")
     return {
         "note": note,
+        "cap_monthly_won": META["cap_monthly"],  # 상한을 말할 때 근거로 쓰도록 (평가 q12에서 기억으로 쓴 상한이 근거 없음으로 잡힘)
+        "cap_text": f"보험료 상한: 기준소득월액 월 {META['cap_monthly'] / 1e4:,.0f}만 원, 연 {CAP_ANNUAL / 1e4:,.0f}만 원",
         "industries": sub["intp_nm"].value_counts().head(5).to_dict(),
         "company_count": int(len(sub)),
         "median_salary_manwon": _manwon(sub["est_corrected"].median()),
@@ -393,6 +403,10 @@ def method_and_limits() -> dict:
             "오차 범위는 상장사 교차검증 결과를 (평균 소득 구간 × 회사 규모 300명 기준)별로 나눈 분위수: "
             "80% 범위(10~90%)와 50% 범위(25~75%)",
         ],
+        # 평가에서 모델이 상한을 기억으로 '월 617만 원'(2025년 값)·'월 790만 원'으로 써서, 지금 값을 문장으로 준다
+        "cap_text": f"보험료 상한: 기준소득월액 월 {META['cap_monthly'] / 1e4:,.0f}만 원 (2026년 7월부터), 연으로 {CAP_ANNUAL / 1e4:,.0f}만 원",
+        "accuracy_text": f"상장사 {META['train_companies']:,}곳 교차검증: 평균 오차율 1차 추정 14.6% → 보정 후 11.1%. "
+                         "순위 상관 0.88이라 금액보다 회사끼리 비교에 더 믿을 만하다",
         "validation": {
             "companies": META["train_companies"],
             "mape_first_estimate": 0.146, "mape_corrected_model": 0.111,

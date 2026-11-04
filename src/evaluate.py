@@ -51,6 +51,13 @@ def amounts_in(text):
         tol = 1
         if eok and "." in eok:
             tol = max(1, int(0.5 * 10 ** (4 - len(eok.split(".")[1]))))
+        # "약 1억 2,000만 원"(실제 1억 2,009만)처럼 '약'을 붙여 반올림한 금액은 반올림 단위의 절반까지 허용한다
+        digits = (man or "").replace(",", "")
+        if re.search(r"약\s*$", text[max(0, m.start() - 3):m.start()]) and digits and digits.strip("0"):
+            zeros = len(digits) - len(digits.rstrip("0"))
+            tol = max(tol, 10 ** zeros // 2)
+        elif re.search(r"약\s*$", text[max(0, m.start() - 3):m.start()]) and eok and not man:
+            tol = max(tol, 5000)  # "약 1억 원" → ±5,000만
         out.append((round(float(eok or 0) * 10_000) + int((man or "0").replace(",", "") or 0), tol))
     return out
 
