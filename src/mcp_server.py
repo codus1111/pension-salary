@@ -41,6 +41,7 @@ INSTRUCTIONS = (
     "답할 때는 추정값만 말하지 말고 오차 범위와 신뢰도 메모(notes)를 함께 전한다. 범위는 두 단계로 말한다: "
     "'가장 가능성 높은 범위(2곳 중 1곳)'는 likely_range_text, '넓게 보면(10곳 중 8곳)'은 range_text. "
     "금액은 직접 계산하거나 단위를 바꾸지 말고 *_text 필드('1억 171만 원' 꼴)를 그대로 옮겨 쓴다. "
+    "업종 안의 위치는 industry_position_text를 그대로 쓴다. "
     "이 값은 회사 전체 직원의 평균 추정치이며 개인의 연봉이나 직무별 연봉이 아니다. "
     "추정 방법이나 한계를 물으면 method_and_limits를 호출한다."
 )
@@ -134,7 +135,10 @@ def _summary(r):
         "monthly_exit_rate": round(float(r["monthly_exit_rate"]), 4),
         "monthly_hires": int(r["hires"]),
         "monthly_exits": int(r["exits"]),
-        "industry_percentile": None if pd.isna(r["industry_pct"]) else round(float(r["industry_pct"]) * 100),
+        # 웹 시험에서 "업종 상위 89%"(실제로는 상위 11%)로 잘못 읽어서, 상위 몇 %인지로 바꿔서 준다
+        "industry_top_pct": None if pd.isna(r["industry_pct"]) else max(1, round((1 - float(r["industry_pct"])) * 100)),
+        "industry_position_text": None if pd.isna(r["industry_pct"]) else
+            f"같은 업종 {int(r['industry_n']):,}곳 중 연봉 상위 {max(1, round((1 - float(r['industry_pct'])) * 100))}%",
         "industry_companies": None if pd.isna(r["industry_n"]) else int(r["industry_n"]),
         "dart_actual_salary_manwon": _manwon(r["dart_avg_salary"]),
         "dart_actual_salary_text": _won_text(r["dart_avg_salary"]),
@@ -208,6 +212,7 @@ def industry_ranking(industry_keyword: str, min_members: int = 100, limit: int =
                        "estimated_salary_text": _won_text(r.est_corrected),
                        "range_manwon": [_manwon(r.range_low), _manwon(r.range_high)],
                        "range_text": f"{_won_text(r.range_low)} ~ {_won_text(r.range_high)}",
+                       "likely_range_manwon": [_manwon(r.range50_low), _manwon(r.range50_high)],
                        "likely_range_text": f"{_won_text(r.range50_low)} ~ {_won_text(r.range50_high)}",
                        "dart_actual_salary_manwon": _manwon(r.dart_avg_salary),
                        "dart_actual_salary_text": _won_text(r.dart_avg_salary)} for r in top.itertuples()],
