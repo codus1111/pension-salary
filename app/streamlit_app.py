@@ -173,15 +173,30 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .cb-name {{ font-size:14px; font-weight:600; color:var(--ink); }}
 .cb-name small {{ display:block; font-size:11px; font-weight:400; color:#8193a8; margin-top:2px; }}
 .cb-bars {{ display:flex; flex-direction:column; gap:5px; }}
-.cb-line {{ display:flex; align-items:center; gap:8px; }}
-.cb-line span {{ font-size:12px; font-weight:700; white-space:nowrap; }}
+.cb-head {{ display:flex; flex-wrap:wrap; gap:4px 16px; }}
+.cb-head span {{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:#3a5170; }}
+.k-bar, .k-band, .k-dbar {{ display:inline-block; width:22px; height:10px; border-radius:3px; }}
+.k-bar {{ background:#0868ec; }}
+.k-band {{ background:#0868ec33; border:1.5px dashed #0868ec; }}
+.k-dbar {{ background:#f08c2e; }}
+.cb-line {{ position:relative; height:24px; }}
+.cb-line-d {{ height:20px; margin-top:4px; }}
+.cb-bar {{ position:absolute; left:0; top:3px; height:18px; border-radius:6px; min-width:4px; }}
+.cb-line-d .cb-bar {{ top:2px; height:14px; }}
+.cb-band {{ position:absolute; top:0; height:24px; background:#0868ec26; border:1.5px dashed #0868ec; border-radius:6px; }}
+.cb-label {{ position:absolute; top:50%; transform:translateY(-50%); white-space:nowrap; font-size:12px; line-height:1.25; }}
+.cb-label b {{ font-weight:700; }}
+.cb-label em {{ display:block; font-style:normal; font-size:11px; color:#5a7aa3; }}
 .cb-line .v-e {{ color:#0868ec; }}
 .cb-line .v-d {{ color:#d9731a; }}
-.cb-bar {{ height:18px; border-radius:6px; min-width:4px; flex:none; }}
 .cb-est {{ background:#0868ec; }}
 .cb-dart {{ background:#f08c2e; }}
 @media (max-width:640px) {{
   .cb-row {{ grid-template-columns:1fr; gap:6px; }}
+  /* 좁은 화면: 금액 글자를 막대 오른쪽이 아니라 아래에 */
+  .cb-line, .cb-line-d {{ height:auto; padding-top:26px; }}
+  .cb-line-d {{ padding-top:20px; }}
+  .cb-label {{ position:static; transform:none; display:block; margin-top:4px; }}
   .sr-track {{ margin:0 14% 40px; }}
 }}
 .rc-axis {{ min-height:22px; }}
@@ -363,23 +378,30 @@ def compare_chart(rows):
     rows = sorted([r for r in rows if r.get("estimated_salary_manwon")], key=lambda r: -r["estimated_salary_manwon"])
     if not rows:
         return None
-    top = max(max(r["estimated_salary_manwon"], r.get("dart_actual_salary_manwon") or 0) for r in rows) * 1.08
+    top = max(max(r["estimated_salary_manwon"], (r.get("likely_range_manwon") or [0, 0])[1] or 0,
+                  r.get("dart_actual_salary_manwon") or 0) for r in rows)
     any_dart = any(r.get("dart_actual_salary_manwon") for r in rows)
+    # 막대는 줄 너비의 62%까지만 쓰고, 금액 글자는 그 오른쪽에 둔다 (짧은 막대에서도 글자가 안 넘치게)
+    pct = lambda v: v / top * 62  # noqa: E731
     lines = []
     for r in rows:
         est, dart = r["estimated_salary_manwon"], r.get("dart_actual_salary_manwon")
         c, d = r.get("likely_range_manwon") or [None, None]
-        # 막대는 줄 너비의 70%까지만 쓰고, 금액 글자는 막대 바로 오른쪽에 둔다 (짧은 막대에서도 글자가 안 넘치게)
-        bars = (f'<div class="cb-line"><div class="cb-bar cb-est" style="width:{est / top * 70:.1f}%"></div>'
-                f'<span class="v-e">추정 {won(est)} 원</span></div>')
+        # 막대 끝만 보면 평균 하나만 보여서, 예상 범위를 막대 위에 연한 띠로 겹쳐 그리고 글자로도 적는다
+        band = (f'<div class="cb-band" style="left:{pct(c):.1f}%;width:{pct(d) - pct(c):.1f}%"></div>' if c else "")
+        end = max(est, d or 0)
+        label = f'<b>추정 {won(est)} 원</b>' + (f'<em>범위 {won(c)} ~ {won(d)} 원</em>' if c else "")
+        bars = (f'<div class="cb-line"><div class="cb-bar cb-est" style="width:{pct(est):.1f}%"></div>{band}'
+                f'<span class="cb-label v-e" style="left:calc({pct(end):.1f}% + 10px)">{label}</span></div>')
         if dart:
-            bars += (f'<div class="cb-line"><div class="cb-bar cb-dart" style="width:{dart / top * 70:.1f}%"></div>'
-                     f'<span class="v-d">실제 {won(dart)} 원</span></div>')
-        sub = f"예상 범위 {won(c)} ~ {won(d)} 원" if c else ""
-        lines.append(f'<div class="cb-row"><div class="cb-name">{html.escape(r["name"])}<small>{sub}</small></div>'
+            bars += (f'<div class="cb-line cb-line-d"><div class="cb-bar cb-dart" style="width:{pct(dart):.1f}%"></div>'
+                     f'<span class="cb-label v-d" style="left:calc({pct(dart):.1f}% + 10px)"><b>실제 {won(dart)} 원</b></span></div>')
+        lines.append(f'<div class="cb-row"><div class="cb-name">{html.escape(r["name"])}</div>'
                      f'<div class="cb-bars">{bars}</div></div>')
-    head = ("파란 막대 = 국민연금으로 추정한 평균 연봉" + (" · 주황 막대 = 회사가 공시한 실제 평균 연봉 (상장사만)" if any_dart else ""))
-    return f'<div class="cb"><p class="cb-head">{head}</p>{"".join(lines)}</div>'
+    head = ('<span><i class="k-bar"></i>추정 평균 연봉 (국민연금)</span>'
+            '<span><i class="k-band"></i>예상 범위 (실제 연봉이 있을 가능성이 큰 구간)</span>'
+            + ('<span><i class="k-dbar"></i>실제 평균 연봉 (회사 공시, 상장사만)</span>' if any_dart else ""))
+    return f'<div class="cb"><div class="cb-head">{head}</div>{"".join(lines)}</div>'
 
 
 BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
