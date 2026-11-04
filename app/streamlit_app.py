@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 GITHUB = "https://github.com/codus1111/pension-salary"
 
-st.set_page_config(page_title="회사 연봉 AI", page_icon="💼", layout="centered", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="회사 연봉 AI", page_icon="💼", layout="wide", initial_sidebar_state="collapsed")
 
 HERO = base64.b64encode((ROOT / "app" / "static" / "hero.webp").read_bytes()).decode()
 SUGGESTIONS = [
@@ -36,15 +36,32 @@ st.markdown(f"""<style>
 .stApp, .stApp p, .stApp li {{ color:var(--ink); }}
 [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] {{ display:none; }}
 header[data-testid="stHeader"] {{ background:transparent; }}
-.block-container {{ max-width:1080px; padding-top:1.6rem; padding-bottom:2rem; }}
+.block-container, [data-testid="stMainBlockContainer"] {{ max-width:min(1600px, 94vw); margin:0 auto; padding:1.6rem 2rem 2rem; }}
+/* 큰 모니터(1600px 이상)에서는 글씨와 첫 화면도 같이 키운다 */
+@media (min-width:1600px) {{
+  .stApp p, .stApp li {{ font-size:17px; }}
+  .s-hero h1 {{ font-size:56px !important; }}
+  .s-desc {{ font-size:17px !important; }}
+  .s-eyebrow {{ font-size:12px !important; }}
+  .s-brand {{ font-size:24px !important; }}
+  .st-key-hero {{ min-height:480px !important; padding:56px 52px 34px !important; }}
+  .st-key-hero input {{ font-size:17px !important; }}
+  .st-key-hero [data-testid="stFormSubmitButton"] button {{ min-height:52px; }}
+  .s-h2 {{ font-size:25px !important; }}
+  .s-caption, .s-note {{ font-size:14px !important; }}
+  [class*="st-key-sg"] button {{ min-height:118px; }}
+  [class*="st-key-sg"] button p {{ font-size:16px !important; }}
+  [class*="st-key-sg"] button::before {{ font-size:13px !important; }}
+  .s-card b {{ font-size:22px; }}
+}}
 .s-nav {{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }}
 .s-brand {{ font-size:20px; font-weight:800; letter-spacing:-.8px; color:var(--ink); }}
 .s-brand span {{ color:var(--blue); }}
 .s-nav a {{ color:#48617f !important; font-size:12px; text-decoration:none; border:1px solid #d9e5f4;
             background:white; padding:9px 16px; border-radius:99px; }}
 .st-key-hero {{ position:relative; overflow:hidden; border:1px solid white; border-radius:30px; background:
-               linear-gradient(90deg,#eef6ff 38%,#eef6ff00 62%),
-               url(data:image/webp;base64,{HERO}) no-repeat right center / 58% auto, #eef6ff;
+               linear-gradient(90deg,#eef6ff 52%,#eef6ff00 68%),
+               url(data:image/webp;base64,{HERO}) no-repeat right center / auto 100%, #eef6ff;
                box-shadow:0 14px 50px #7c9abb12; padding:42px 38px 26px; min-height:360px; }}
 .s-eyebrow {{ font-size:10px; font-weight:750; letter-spacing:2px; color:#1766bf; margin:0 0 20px; }}
 .s-hero h1 {{ font-size:clamp(28px,3.8vw,42px); font-weight:800; line-height:1.35; letter-spacing:-1.9px;
