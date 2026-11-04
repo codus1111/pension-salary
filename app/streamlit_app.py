@@ -36,7 +36,7 @@ st.markdown(f"""<style>
 .stApp, .stApp p, .stApp li {{ color:var(--ink); }}
 [data-testid="stSidebar"], [data-testid="stSidebarCollapsedControl"] {{ display:none; }}
 header[data-testid="stHeader"] {{ background:transparent; }}
-.block-container, [data-testid="stMainBlockContainer"] {{ max-width:min(1600px, 94vw); margin:0 auto; padding:1.6rem 2rem 2rem; }}
+.block-container, [data-testid="stMainBlockContainer"] {{ max-width:min(1800px, 97vw); margin:0 auto; padding:1.2rem 1.5rem 2rem; }}
 /* 큰 모니터(1600px 이상)에서는 글씨와 첫 화면도 같이 키운다 */
 @media (min-width:1600px) {{
   .stApp p, .stApp li {{ font-size:17px; }}
@@ -60,8 +60,8 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .s-nav a {{ color:#48617f !important; font-size:12px; text-decoration:none; border:1px solid #d9e5f4;
             background:white; padding:9px 16px; border-radius:99px; }}
 .st-key-hero {{ position:relative; overflow:hidden; border:1px solid white; border-radius:30px; background:
-               linear-gradient(90deg,#eef6ff 52%,#eef6ff00 68%),
-               url(data:image/webp;base64,{HERO}) no-repeat right center / auto 100%, #eef6ff;
+               linear-gradient(90deg,#e5f1fd 52%,#e5f1fd00 68%),
+               url(data:image/webp;base64,{HERO}) no-repeat right center / auto 100%, #e5f1fd;
                box-shadow:0 14px 50px #7c9abb12; padding:42px 38px 26px; min-height:360px; }}
 .s-eyebrow {{ font-size:10px; font-weight:750; letter-spacing:2px; color:#1766bf; margin:0 0 20px; }}
 .s-hero h1 {{ font-size:clamp(28px,3.8vw,42px); font-weight:800; line-height:1.35; letter-spacing:-1.9px;
@@ -278,6 +278,23 @@ def hero_copy():
 # 비밀번호 확인
 password = secret("APP_PASSWORD")
 if password and not st.session_state.get("authed"):
+    # 비밀번호 화면은 첫 화면 하나뿐이라 아래가 비어 보여서, 화면 높이를 꽉 채우고 글씨·그림을 키운다
+    st.markdown("""<style>
+    .st-key-hero { min-height:calc(100vh - 130px) !important; display:flex; flex-direction:column; justify-content:center;
+                   padding:6vh 5vw !important; background-size:auto 100% !important; background-position:right center !important; }
+    .st-key-hero .s-hero h1 { font-size:clamp(34px, 4.6vw, 76px) !important; letter-spacing:-2px; }
+    .st-key-hero .s-desc { font-size:clamp(15px, 1.2vw, 21px) !important; }
+    .st-key-hero .s-eyebrow { font-size:clamp(11px, 0.8vw, 14px) !important; }
+    .st-key-hero [data-testid="stForm"] { max-width:760px; }
+    .st-key-hero .s-points { display:flex; gap:10px; flex-wrap:wrap; margin:28px 0 0; }
+    .st-key-hero .s-points span { background:#ffffffcc; border:1px solid #d8e7f7; border-radius:99px; padding:8px 14px;
+                                  font-size:13px; color:#42658a; }
+    @media (max-width:640px) {
+      .st-key-hero { min-height:calc(100vh - 110px) !important; padding:28px 20px !important;
+                     background-size:100% auto !important; background-position:center bottom !important; }
+      .st-key-hero .s-hero h1 { font-size:29px !important; letter-spacing:-1.2px; }
+    }
+    </style>""", unsafe_allow_html=True)
     nav()
     with st.container(key="hero"):
         hero_copy()
@@ -285,7 +302,10 @@ if password and not st.session_state.get("authed"):
             c1, c2 = st.columns([5, 1])
             typed = c1.text_input("비밀번호", type="password", placeholder="비밀번호를 입력하세요", label_visibility="collapsed")
             ok = c2.form_submit_button("입장", use_container_width=True)
-        st.markdown('<p class="s-note">무료 AI 사용량을 지키기 위해 비밀번호를 받고 있어요.</p>', unsafe_allow_html=True)
+        st.markdown('<p class="s-note">무료 AI 사용량을 지키기 위해 비밀번호를 받고 있어요.</p>'
+                    '<div class="s-points"><span>🏢 회사 51만 곳</span><span>✅ 상장사 2,392곳 공시로 검증</span>'
+                    '<span>📉 2025년 12개월 퇴사율</span><span>🔎 토스·배민 같은 브랜드명 검색</span></div>',
+                    unsafe_allow_html=True)
     if ok and typed:
         if typed == password:
             st.session_state["authed"] = True
