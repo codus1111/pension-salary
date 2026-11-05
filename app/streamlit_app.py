@@ -931,6 +931,9 @@ st.markdown("""<style>
 .st-key-hero [data-testid="stExpander"] { max-width:760px; }
 .st-key-hero [data-testid="stExpander"] details { background:#ffffffd9 !important; border-color:#d3e3f6 !important; }
 .st-key-filterbox { max-width:760px; background:#ffffffd9; border:1px solid #d3e3f6; border-radius:15px; padding:12px 18px 10px; }
+[class*="st-key-whohead"] { margin-bottom:2px; }
+[class*="st-key-whohead"] button { min-height:0 !important; padding:0 4px !important; }
+[class*="st-key-whohead"] button p { font-size:12px !important; color:#0868ec !important; }
 .s-filter-h { font-size:13px !important; font-weight:650; color:#24456c !important; margin:0 0 4px !important; }
 .st-key-filterbox [data-testid="stForm"] { max-width:none; border:0; border-radius:14px; box-shadow:none;
                background:transparent; padding:4px 2px; }
@@ -954,15 +957,30 @@ st.markdown("""<style>
 [class*="st-key-myyear"] { background:white; border:1px dashed #c9d8ea; border-radius:14px; padding:8px 16px 4px; margin:8px 0; }
 .s-cand { font-size:13px !important; margin:0 !important; }
 .s-cand small { color:#8193a8; }
-/* 검색창 예시가 몇 초마다 위로 돌아가며 바뀐다 (칸을 누르거나 글자를 치면 사라진다) */
-.st-key-hero [data-testid="stForm"] [data-testid="stTextInputRootElement"] { position:relative; overflow:hidden; }
-.st-key-hero [data-testid="stForm"] [data-testid="stTextInputRootElement"] input:not(:focus)::placeholder { color:transparent !important; }
-.st-key-hero [data-testid="stForm"] [data-testid="stTextInputRootElement"]::after {
-  content:"🔍  토스"; position:absolute; left:14px; top:50%; transform:translateY(-50%); pointer-events:none;
-  color:#8193a8; font-size:15px; white-space:nowrap; overflow:hidden; max-width:calc(100% - 28px);
+/* 검색창 예시가 몇 초마다 위로 돌아가며 바뀐다 (칸을 누르면 사라진다) */
+.st-key-searchbox { max-width:760px; background:white; border:1px solid #c4d9f5; border-radius:99px;
+                    box-shadow:0 8px 28px #447bb91c; padding:6px 6px 6px 14px; margin:0 0 10px; }
+.st-key-searchbox [data-testid="stHorizontalBlock"] { align-items:center; gap:6px; flex-wrap:nowrap; }
+.st-key-searchbox .react-aria-ComboBox { position:relative; }
+/* 후보 맨 위 'Add: 토'(영어)를 우리말로 */
+[role="option"][data-key="__creatable__"] > div { font-size:0 !important; }
+[role="option"][data-key="__creatable__"] > div::before { content:"🔍  입력한 그대로 검색 (질문도 돼요)"; font-size:13px; color:#0757c8; }
+.st-key-searchbox .react-aria-ComboBox > div { border:0 !important; background:transparent !important; box-shadow:none !important; }
+.st-key-searchbox .react-aria-ComboBox button[aria-label="Open"] { display:none; }
+.st-key-searchbox input { font-size:15px !important; }
+.st-key-searchbox input:not(:focus)::placeholder { color:transparent !important; }
+.st-key-searchbox button[kind="primary"] { background:var(--blue); border:0; border-radius:99px; min-height:44px; font-weight:650; }
+.st-key-searchbox .react-aria-ComboBox::after {
+  content:"🔍  토스"; position:absolute; left:12px; top:50%; transform:translateY(-50%); pointer-events:none;
+  color:#8193a8; font-size:15px; white-space:nowrap; overflow:hidden; max-width:calc(100% - 24px);
   animation:s-roll 21s ease-in-out infinite; }
-.st-key-hero [data-testid="stForm"] [data-testid="stTextInputRootElement"]:has(input:focus)::after,
-.st-key-hero [data-testid="stForm"] [data-testid="stTextInputRootElement"]:has(input:not(:placeholder-shown))::after { display:none; }
+.st-key-searchbox .react-aria-ComboBox:focus-within::after,
+.st-key-searchbox .react-aria-ComboBox:has(input:not(:placeholder-shown))::after { display:none; }
+@media (max-width:640px) {
+  .st-key-searchbox [data-testid="stColumn"]:first-child { flex:1 1 auto; min-width:0; width:auto; }
+  .st-key-searchbox [data-testid="stColumn"]:last-child { flex:0 0 72px; min-width:72px; width:72px; }
+  .st-key-searchbox { padding:4px 4px 4px 8px; }
+}
 @keyframes s-roll { 0.00% { content:"🔍  토스"; opacity:0; transform:translateY(55%); } 1.71% { content:"🔍  토스"; opacity:1; transform:translateY(-50%); } 12.14% { content:"🔍  토스"; opacity:1; transform:translateY(-50%); } 14.27% { content:"🔍  토스"; opacity:0; transform:translateY(-150%); } 14.29% { content:"🔍  네이버랑 카카오 비교해줘"; opacity:0; transform:translateY(55%); } 16.00% { content:"🔍  네이버랑 카카오 비교해줘"; opacity:1; transform:translateY(-50%); } 26.43% { content:"🔍  네이버랑 카카오 비교해줘"; opacity:1; transform:translateY(-50%); } 28.56% { content:"🔍  네이버랑 카카오 비교해줘"; opacity:0; transform:translateY(-150%); } 28.57% { content:"🔍  삼성전자 신입 연봉"; opacity:0; transform:translateY(55%); } 30.29% { content:"🔍  삼성전자 신입 연봉"; opacity:1; transform:translateY(-50%); } 40.71% { content:"🔍  삼성전자 신입 연봉"; opacity:1; transform:translateY(-50%); } 42.84% { content:"🔍  삼성전자 신입 연봉"; opacity:0; transform:translateY(-150%); } 42.86% { content:"🔍  스타벅스"; opacity:0; transform:translateY(55%); } 44.57% { content:"🔍  스타벅스"; opacity:1; transform:translateY(-50%); } 55.00% { content:"🔍  스타벅스"; opacity:1; transform:translateY(-50%); } 57.13% { content:"🔍  스타벅스"; opacity:0; transform:translateY(-150%); } 57.14% { content:"🔍  현대자동차 5년 차 연봉"; opacity:0; transform:translateY(55%); } 58.86% { content:"🔍  현대자동차 5년 차 연봉"; opacity:1; transform:translateY(-50%); } 69.29% { content:"🔍  현대자동차 5년 차 연봉"; opacity:1; transform:translateY(-50%); } 71.41% { content:"🔍  현대자동차 5년 차 연봉"; opacity:0; transform:translateY(-150%); } 71.43% { content:"🔍  증권업계 연봉 높은 회사"; opacity:0; transform:translateY(55%); } 73.14% { content:"🔍  증권업계 연봉 높은 회사"; opacity:1; transform:translateY(-50%); } 83.57% { content:"🔍  증권업계 연봉 높은 회사"; opacity:1; transform:translateY(-50%); } 85.70% { content:"🔍  증권업계 연봉 높은 회사"; opacity:0; transform:translateY(-150%); } 85.71% { content:"🔍  배민 1년 퇴사율"; opacity:0; transform:translateY(55%); } 87.43% { content:"🔍  배민 1년 퇴사율"; opacity:1; transform:translateY(-50%); } 97.86% { content:"🔍  배민 1년 퇴사율"; opacity:1; transform:translateY(-50%); } 99.99% { content:"🔍  배민 1년 퇴사율"; opacity:0; transform:translateY(-150%); } }
 @media (min-width:1600px) { .st-key-hero { padding:36px 48px 20px !important; } .s-hero h1 { font-size:46px !important; } }
 @media (max-width:640px) {
@@ -981,14 +999,30 @@ if not st.session_state.get("qp_done") and st.query_params.get("q"):
     search_q = st.query_params.get("q")
     st.session_state["qp_done"] = True
 
+@st.cache_data(max_entries=1)
+def search_options(version):
+    """예상 검색어 후보: 브랜드명(토스·배민 …) + 직원 300명 이상 회사 이름(괄호·주식회사 뺀 것), 큰 회사 먼저."""
+    big = DATA[DATA["members"] >= 300].sort_values("members", ascending=False)["sample_nm"]
+    names = list(agent.tools.BRANDS) + [search_name(n) for n in big]
+    return list(dict.fromkeys(n for n in names if n))
+
+
+def _picked():
+    v = st.session_state.get("sbox")
+    if v and str(v).strip():
+        st.session_state["pending_search"] = str(v).strip()
+    st.session_state["sbox"] = None  # 검색칸은 다시 비운다
+
+
 with st.container(key="hero"):
     hero_copy()
-    with st.form("search", border=False, clear_on_submit=True):
-        c1, c2 = st.columns([5, 1])
-        typed = c1.text_input("검색", placeholder="회사 이름 또는 궁금한 내용",
-                              label_visibility="collapsed")
-        if c2.form_submit_button("검색", use_container_width=True) and typed.strip():
-            search_q = typed.strip()
+    # 예상 검색어: 글자를 치는 동안 아래에 후보가 뜬다 ('토' → 토스, 토스뱅크 …). 목록에 없는 말(질문)도 그대로 검색된다
+    with st.container(key="searchbox"):
+        c1, c2 = st.columns([5, 1], vertical_alignment="center")
+        c1.selectbox("검색", search_options(_version), index=None, key="sbox", placeholder="회사 이름 또는 궁금한 내용",
+                     accept_new_options=True, on_change=_picked, label_visibility="collapsed")
+        c2.button("검색", key="sbtn", use_container_width=True, type="primary",
+                  help="후보를 고르거나, 다 쓰고 Enter를 누르면 바로 찾아요")
     # 조건 필터도 같은 검색창 아래에 (업종·지역·규모·연봉·채용)
     # 접었다 펴는 칸이 아니라 늘 펼쳐 둔다 (누르지 않아도 조건을 바로 고를 수 있게)
     with st.container(key="filterbox"):
@@ -1204,9 +1238,6 @@ def render_result(m, user, i):
             if s:
                 st.markdown(small_card(s, f"{tiny['region'] or '전국'} · {g}"), unsafe_allow_html=True)
         return
-    if m.get("guess") and m.get("rows"):
-        st.button(f"🔎 혹시 '{m['guess']}' 찾으셨나요?", key=f"guess{i}",
-                  on_click=lambda g=m["guess"]: st.session_state.update(pending_search=g))
     if m.get("note"):
         st.caption("🔎 " + m["note"])
     if m.get("fallback"):
@@ -1255,7 +1286,14 @@ def show_pair(user, answer, i):
     st.markdown(f'<div class="s-user"><b>나</b>{html.escape(user)}</div>', unsafe_allow_html=True)
     if answer:
         with st.container(key=f"answer{i}"):
-            st.markdown('<span class="s-who">회사 연봉 AI</span>', unsafe_allow_html=True)
+            if answer.get("guess") and answer.get("rows"):
+                # '토수' → 토수종합건설 결과는 그대로 두고, '혹시 토스?'는 이름표 옆에 작게만 묻는다
+                head = st.container(key=f"whohead{i}", horizontal=True, vertical_alignment="center", gap="small")
+                head.markdown('<span class="s-who">회사 연봉 AI</span>', unsafe_allow_html=True, width="content")
+                head.button(f"혹시 '{answer['guess']}' 찾으셨나요? →", key=f"guess{i}", type="tertiary",
+                            on_click=lambda g=answer["guess"]: st.session_state.update(pending_search=g))
+            else:
+                st.markdown('<span class="s-who">회사 연봉 AI</span>', unsafe_allow_html=True)
             render_result(answer, user, i)
 
 
