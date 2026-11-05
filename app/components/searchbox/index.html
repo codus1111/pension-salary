@@ -59,15 +59,20 @@
     const h = Math.ceil(document.getElementById("wrap").getBoundingClientRect().height) + 4;
     if (h !== lastH) { lastH = h; send("streamlit:setFrameHeight", {height: h}); }
   };
-  const submit = (text) => {
+  const submit = (text, key) => {
     text = (text || "").trim();
     if (!text) return;
-    send("streamlit:setComponentValue", {value: {q: text, t: Date.now()}, dataType: "json"});
+    send("streamlit:setComponentValue", {value: {q: text, key: key || null, t: Date.now()}, dataType: "json"});
     q.value = ""; render(); q.blur();
   };
   const q = document.getElementById("q"), sug = document.getElementById("sug"), roll = document.getElementById("roll");
   let OPTS = [], EXAMPLES = ["토스"], ex = 0, active = -1, shown = [];
   const norm = (s) => s.replace(/\s+/g, "").toLowerCase();
+  // 영문 약자는 국민연금 이름처럼 한글로 읽는다 (src/match.py의 LETTERS와 같은 표). kt → 케이티, kt&g → 케이티앤지
+  const LET = {a:"에이",b:"비",c:"씨",d:"디",e:"이",f:"에프",g:"지",h:"에이치",i:"아이",j:"제이",k:"케이",l:"엘",m:"엠",
+               n:"엔",o:"오",p:"피",q:"큐",r:"알",s:"에스",t:"티",u:"유",v:"브이",w:"더블유",x:"엑스",y:"와이",z:"제트"};
+  const hang = (s) => norm(s).replace(/&/g, "앤").replace(/[a-z]+/g, (w) => w.length <= 5 ? [...w].map((c) => LET[c]).join("") : w)
+                              .replace(/[^0-9a-z가-힣]/g, "");
   const esc = (s) => s.replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   function render() {
     const v = norm(q.value);
@@ -75,9 +80,11 @@
     if (!v || document.activeElement !== q) { sug.classList.add("hide"); sug.innerHTML = ""; shown = []; setHeight(); return; }
     // 이름이 검색어로 시작하는 것 먼저, 그다음 이름에 들어 있는 것. 같은 순위 안에서는 원래 순서(브랜드 → 큰 회사)
     const starts = [], inside = [];
+    const vh = hang(q.value);
     for (const o of OPTS) {
-      const n = o[3];
-      if (n.startsWith(v)) starts.push(o); else if (n.includes(v)) inside.push(o);
+      const n = o[5], k = o[6];
+      if (n.startsWith(v) || (vh && k.startsWith(vh))) starts.push(o);
+      else if (n.includes(v) || (vh && k.includes(vh))) inside.push(o);
       if (starts.length >= 7) break;
     }
     shown = starts.concat(inside).slice(0, 7);
@@ -93,13 +100,13 @@
   }
   sug.addEventListener("mousedown", (e) => {
     const c = e.target.closest(".row");
-    if (c) { e.preventDefault(); submit(+c.dataset.i < 0 ? q.value : shown[+c.dataset.i][2]); }
+    if (c) { e.preventDefault(); const o = shown[+c.dataset.i]; +c.dataset.i < 0 ? submit(q.value) : submit(o[2], o[3]); }
   });
   q.addEventListener("input", render);
   q.addEventListener("focus", render);
   q.addEventListener("blur", () => setTimeout(render, 0));
   q.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); submit(active >= 0 ? shown[active][2] : q.value); }
+    if (e.key === "Enter") { e.preventDefault(); active >= 0 ? submit(shown[active][2], shown[active][3]) : submit(q.value); }
     else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && shown.length) {
       e.preventDefault();
       active = (active + (e.key === "ArrowDown" ? 1 : -1) + shown.length) % shown.length;
@@ -122,7 +129,8 @@
     const d = e.data;
     if (!d || d.type !== "streamlit:render") return;
     const a = d.args || {};
-    if (a.options && a.options.length !== OPTS.length) OPTS = a.options.map((o) => [o[0], o[1], o[2], norm(o[0])]);
+    if (a.options && a.options.length !== OPTS.length)
+      OPTS = a.options.map((o) => [o[0], o[1], o[2], o[3] || "", o[4] || "", norm(o[0]), (o[4] || hang(o[0]))]);
     if (a.examples) { EXAMPLES = a.examples; roll.textContent = "🔍  " + EXAMPLES[ex % EXAMPLES.length]; }
     setHeight();
   });

@@ -1110,6 +1110,11 @@ EXAMPLES = ["토스 평균 연봉 어느 정도야?", "네이버랑 카카오 �
             "삼성전자 신입 연봉", "스타벅스", "현대자동차 5년 차 연봉", "배민 1년 퇴사율"]
 
 
+def brand_label(b):
+    """브랜드 사전은 소문자로 적어 둬서, 영문 브랜드는 화면에 대문자로 ('kt&g' → 'KT&G')."""
+    return b.upper() if b.isascii() else b
+
+
 @st.cache_data(max_entries=1, show_spinner=False)  # 'Running search_options(...)' 같은 내부 문구가 화면에 보이지 않게
 def search_options(version):
     """검색칸 아래 목록 후보: [보이는 이름, 업종·지역·직원 수, 검색할 이름]. 브랜드명(토스 → 비바리퍼블리카) 먼저, 그다음 직원 300명 이상 회사 큰 순.
@@ -1119,20 +1124,25 @@ def search_options(version):
     big = DATA[DATA["members"] >= 30].sort_values("members", ascending=False).drop_duplicates("key_nm")
     by_key = big.set_index("key_nm")
     info = lambda r: f"{r['group']} · {r['sido'] if isinstance(r['sido'], str) else '-'} · {int(r['members']):,}명"  # noqa: E731
-    out = []
+    out, used = [], set()
     for b in agent.tools.BRANDS:
         k = agent.tools._key(agent.tools.to_legal(b) or b)
         if k in by_key.index:
             r = by_key.loc[k]
-            out.append([b, f"{search_name(r['sample_nm'])} · " + info(r), b])
+            if r["company_key"] in used:  # 'ktng'처럼 같은 회사의 다른 이름은 한 번만
+                continue
+            used.add(r["company_key"])
+            shown = brand_label(b)
+            out.append([shown, f"{search_name(r['sample_nm'])} · " + info(r), shown, r["company_key"], agent.tools._key(b)])
     top = big[big["members"] >= 300]
     names = [search_name(n) for n in top["sample_nm"]]
-    rows = top[["group", "sido", "members"]].to_dict("records")
+    rows = top[["group", "sido", "members", "company_key", "key_nm"]].to_dict("records")
     seen = set()
     for n, r in zip(names, rows):
-        if n and n not in seen:
+        if n and n not in seen and r["company_key"] not in used:  # 브랜드로 이미 나온 회사는 빼기
             seen.add(n)
-            out.append([n, info(r), n])
+            # 누르면 이름으로 다시 찾지 않고 이 회사를 바로 연다 ('kt service 남부'를 다시 찾다 다른 회사가 나왔다)
+            out.append([n, info(r), n, r["company_key"], r["key_nm"]])
     return out
 
 
@@ -1143,7 +1153,10 @@ with st.container(key="hero"):
     got = searchbox(options=search_options(_version), examples=EXAMPLES, key="sbox", default=None)
     if got and got.get("t") != st.session_state.get("sbox_t"):
         st.session_state["sbox_t"] = got["t"]
-        search_q = got["q"]
+        if got.get("key"):  # 목록에서 고른 회사는 그 회사 그대로
+            st.session_state["pending_key"] = (got["key"], got["q"])
+        else:
+            search_q = got["q"]
     # 접었다 펴는 칸이 아니라 늘 펼쳐 둔다 (누르지 않아도 조건을 바로 고를 수 있게)
     with st.container(key="filterbox"):
         st.markdown('<p class="s-filter-h">🎛️ 조건으로 찾기 · 업종 · 지역 · 규모 · 연봉 · 요즘 채용 많은 곳</p>',
@@ -1292,8 +1305,8 @@ def data_message(q, key=None):
         brand = agent.tools.suggest_brand(q) if hasattr(agent.tools, "suggest_brand") else None
         # 토스·라라스윗처럼 브랜드명으로 찾으면 결론에 '토스의 법인인 (주)비바리퍼블리카'로 적는다
         legal = agent.tools.to_legal(q)
-        bname = next((b for b in [*agent.tools.BRANDS, *agent.tools.UNVERIFIED]
-                      if agent.tools._key(b) == agent.tools._key(q)), q) if legal else None
+        bname = brand_label(next((b for b in [*agent.tools.BRANDS, *agent.tools.UNVERIFIED]
+                                  if agent.tools._key(b) == agent.tools._key(q)), q)) if legal else None
         return {"role": "assistant", "mode": "data", "kind": "single", "rows": [r], "candidates": others, "query": q,
                 "note": agent.tools.brand_note(q) if hasattr(agent.tools, "brand_note") else None, "guess": brand,
                 "brand": bname}
