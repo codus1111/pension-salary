@@ -590,18 +590,18 @@ def salary_ruler(r):
     if not dart:
         note = "상장사가 아니라 실제 공시 연봉이 없어요. 이 범위가 지금 알 수 있는 최선이에요."
     elif c <= dart <= d:
-        note = f"✅ 실제 공시 연봉({won(dart)} 원)이 이 범위 안에 있어요. 추정이 잘 맞은 회사예요."
+        note = f"실제 공시 연봉({won(dart)} 원)도 이 범위 안에 있어요. 추정이 잘 맞는 회사예요."
     elif dart > d:
-        note = (f"📌 실제 공시 연봉({won(dart)} 원)이 범위보다 높아요. 성과급이 많은 회사는 국민연금 자료로는 "
-                "낮게 잡혀요. 이런 회사는 실제 공시 숫자를 믿으세요.")
+        note = (f"실제 공시 연봉({won(dart)} 원)은 이 범위보다 높아요. 성과급이 많은 회사는 국민연금 자료에 덜 잡혀서 그래요. "
+                "이럴 땐 공시 숫자를 보시면 돼요.")
     else:
-        note = f"📌 실제 공시 연봉({won(dart)} 원)이 범위보다 낮아요. 이런 회사는 실제 공시 숫자를 믿으세요."
+        note = f"실제 공시 연봉({won(dart)} 원)은 이 범위보다 낮아요. 이럴 땐 공시 숫자를 보시면 돼요."
     # 점검에서 284곳(5%)은 추정값이 '가능성 높은 범위' 밖이었다. 비슷한 상장사들의 실제 연봉이 추정보다 한쪽으로 치우쳐 있어
     # 범위를 그만큼 옮겨 잡았기 때문이라, 화면에 이유를 같이 적는다
     if est < c or est > d:
         side = "높았" if est < c else "낮았"
-        note = (f"📍 추정값({won(est)} 원)이 범위 밖에 있어요. 비슷한 회사들은 실제 연봉이 추정보다 대체로 {side}기 때문에 "
-                f"범위를 그쪽으로 옮겨 잡았어요. 실제 평균 연봉은 범위 안일 가능성이 더 커요.<br>" + note)
+        note = (f"추정값({won(est)} 원)이 범위 밖에 있는 건, 비슷한 회사들의 실제 연봉이 추정보다 대체로 {side}기 때문이에요. "
+                f"그래서 범위를 그쪽으로 옮겨 잡았어요.<br>" + note)
     return (f'<div class="sr"><p class="sr-head">평균 연봉은 <b>{won(c)} ~ {won(d)} 원</b> 사이일 가능성이 커요</p>'
             '<p class="sr-help"><b>추정 연봉</b> = 국민연금 보험료로 거꾸로 계산한 이 회사 전체 직원의 평균 연봉 · '
             '<b>가능성 높은 범위</b> = 비슷한 회사 2곳 중 1곳은 실제 평균 연봉이 이 안에 있었어요</p>'
@@ -849,12 +849,12 @@ def tenure_chart(tc):
     head = (f'<small>연차별 참고 연봉 (신입 → 10년 이상) <span class="s-key"><i class="k-teal"></i>회청색 = 정부 통계로 만든 참고값</span> · '
             f'신입 약 <b class="up">{won(vals[0])} 원</b> · '
             f'{html.escape(tc["growth_text"])}</small>')
-    dart = f'<p>📊 {html.escape(tc["dart_compare_text"])}</p>' if tc.get("dart_compare_text") else ""
+    dart = f'<p>{html.escape(tc["dart_compare_text"])}</p>' if tc.get("dart_compare_text") else ""
     return (f'<div class="tr ref">{head}<div class="tr-bars">{bars}</div>'
             f'<p class="tr-basis">막대 아래 %는 회사 평균 대비 · 기준 {html.escape(tc["base_text"])} · '
             f'{html.escape(tc.get("tenure_text", ""))} · '
             f'정부 통계 업종: {html.escape(tc["industry_basis"])} · {html.escape(tc["basis"])}</p>'
-            f'<p>⚠️ {html.escape(tc["meaning"])}</p>{dart}</div>')
+            f'<p>{html.escape(tc["meaning"])}</p>{dart}</div>')
 
 
 def trend_chart(tr):
@@ -874,7 +874,7 @@ def trend_chart(tr):
     head = (f'<small>회사 평균 연봉 변화 (연도별) {key} · {tr["change_text"]}</small>'
             if g is None else f'<small>회사 평균 연봉 변화 (연도별) {key} · 연평균 <b class="{"up" if g >= 0 else "down"}">{g:+.1f}%</b> · '
                                 f'{html.escape(tr["change_text"].split(" (")[0])}</small>')
-    notes = "".join(f"<p>💡 {html.escape(n)}</p>" for n in tr.get("notes", []))
+    notes = "".join(f"<p>{html.escape(n)}</p>" for n in tr.get("notes", []))
     return (f'<div class="tr">{head}<div class="tr-bars">{bars}</div>'
             f'<p class="tr-basis">그해 회사에 있던 직원 전체의 평균이에요 (한 사람의 연차별 연봉이 아니에요) · '
             f'막대 아래 숫자는 그해 직원 수 · {html.escape(tr["basis"])}</p>{notes}</div>')
@@ -914,12 +914,12 @@ def conclusion(m):
     kind, rows = m.get("kind"), m.get("rows") or []
     if m.get("mode") == "filter":
         if not rows:
-            return "📌 조건에 맞는 회사가 없어요. 조건을 넓혀 보세요."
+            return "조건에 맞는 회사가 없어요. 조건을 조금 넓혀 보세요."
         top = rows[0]
         if m.get("hiring"):
-            return (f"📌 조건에 맞는 회사 <b>{m['n']:,}곳</b> 중 2025년에 직원을 가장 많이 늘린 곳은 <b>{html.escape(top['name'])}</b>"
+            return (f"조건에 맞는 회사 <b>{m['n']:,}곳</b> 중 2025년에 직원을 가장 많이 늘린 곳은 <b>{html.escape(top['name'])}</b>"
                     f" (1년 새 직원 +{top.get('hire_rate_pct')}% · 추정 연봉 약 {won(top['estimated_salary_manwon'])} 원)")
-        return (f"📌 조건에 맞는 회사 <b>{m['n']:,}곳</b> 중 추정 연봉이 가장 높은 곳은 <b>{html.escape(top['name'])}</b>"
+        return (f"조건에 맞는 회사 <b>{m['n']:,}곳</b> 중 추정 연봉이 가장 높은 곳은 <b>{html.escape(top['name'])}</b>"
                 f" (약 {won(top['estimated_salary_manwon'])} 원)")
     if kind == "single" and rows:
         r = rows[0]
@@ -928,7 +928,7 @@ def conclusion(m):
         brand = m.get("brand")
         who = (f"<b>{html.escape(brand)}</b>의 법인인 <b>{html.escape(r['name'])}</b>" if brand
                else f"<b>{html.escape(r['name'])}</b>")
-        parts = [f"📌 {who} 평균 연봉 <b>약 {won(r['estimated_salary_manwon'])} 원</b>"]
+        parts = [f"{who} 평균 연봉 <b>약 {won(r['estimated_salary_manwon'])} 원</b>"]
         if r.get("dart_actual_salary_manwon"):
             parts.append(f"실제 공시 <b>{won(r['dart_actual_salary_manwon'])} 원</b>")
         elif c:
@@ -943,7 +943,7 @@ def conclusion(m):
         ok = sorted([r for r in rows if r.get("estimated_salary_manwon")], key=lambda r: -r["estimated_salary_manwon"])
         if len(ok) >= 2:
             hi, lo = ok[0], ok[-1]
-            return (f"📌 {len(ok)}곳 중 추정 연봉이 가장 높은 곳은 <b>{html.escape(hi['name'])}</b> (약 {won(hi['estimated_salary_manwon'])} 원), "
+            return (f"{len(ok)}곳 중 추정 연봉이 가장 높은 곳은 <b>{html.escape(hi['name'])}</b> (약 {won(hi['estimated_salary_manwon'])} 원), "
                     f"가장 낮은 곳은 {html.escape(lo['name'])} (약 {won(lo['estimated_salary_manwon'])} 원)")
     return None
 
@@ -969,14 +969,23 @@ def share_box(name):
         st.caption("오른쪽 위 버튼으로 복사해서 보내면, 받은 사람이 열자마자 이 회사 결과가 나와요. (비밀번호가 있으면 입장 후)")
 
 
-WHY_DIFF = """**추정 연봉과 실제 공시 연봉이 다른 이유**
+# '왜 다를까요?' 창: 실제 공시가 더 높은 회사와 추정이 더 높은 회사는 이유가 달라서 따로 보여준다
+WHY_ACTUAL_HIGHER = """**실제 공시 연봉이 추정보다 높은 이유**
 
-1. **보험료 상한** — 국민연금은 월 소득 659만 원(연 7,908만 원)까지만 보험료를 매겨요. 그 이상은 자료에 안 보여서 고연봉자가 많을수록 추정이 낮아요. (보정 모델로 끌어올리지만 다 메우지는 못해요)
-2. **잡히는 소득의 범위** — 국민연금에는 식대 같은 비과세 수당이 빠지고 성과급은 일부만 반영돼요. 사업보고서 평균 급여에는 성과급·상여금이 모두 들어가요.
-3. **시점** — 국민연금 기준 소득은 매년 7월에 전년도 소득으로 정해져요. 성과급을 언제 줬는지에 따라 어긋날 수 있어요.
-4. **세는 사람·사업장** — 사업보고서는 임원을 뺀 회사 전체 직원(계약직·중간 입사자 포함) 평균이고, 국민연금은 이 사업장 가입자(임원 포함)예요. 지점·공장을 따로 신고한 회사는 본사만 잡혀서 추정이 더 높게 나오기도 해요.
+1. 보험료 상한. 국민연금은 월 소득 659만 원(연 7,908만 원)까지만 보험료를 매겨요. 그 이상은 자료에 안 보여서, 고연봉자가 많을수록 추정이 낮아져요. 보정 모델로 끌어올리긴 하지만 다 메우지는 못해요.
+2. 성과급과 수당. 국민연금에는 식대 같은 비과세 수당이 빠지고 성과급도 일부만 들어가요. 사업보고서 평균 급여에는 성과급과 상여금이 다 들어가요.
+3. 시점. 국민연금 기준 소득은 매년 7월에 전년도 소득으로 정해져요. 그해 성과급이 많이 올랐다면 국민연금에는 아직 덜 반영돼 있어요.
 
-👉 실제 공시 연봉이 있으면 **그 숫자가 더 정확해요.**"""
+실제 공시 연봉이 있으면 그 숫자가 더 정확해요."""
+
+WHY_EST_HIGHER = """**추정 연봉이 실제 공시보다 높은 이유**
+
+1. 세는 사람. 사업보고서 평균 급여는 계약직과 중간에 들어온 사람까지 넣고, 1년 동안 준 급여를 평균 직원 수로 나눠요. 중간 입사자는 몇 달 치만 받아서 평균이 내려가요.
+2. 임원 포함 여부. 사업보고서는 임원을 빼고 계산하지만, 국민연금 가입자에는 임원도 들어가요.
+3. 사업장 범위. 지점이나 공장을 따로 신고한 회사는 국민연금에 본사만 잡혀요. 본사는 연봉이 높은 직군이 많아 추정이 더 높게 나오기 쉬워요.
+4. 보정 모델. 비슷한 규모와 소득대의 상장사에 맞춰 보정하는데, 그 회사들보다 실제로 덜 주는 회사는 추정이 높게 나와요.
+
+실제 공시 연봉이 있으면 그 숫자가 더 정확해요."""
 
 
 def show_visuals(kind, rows, i=0):
@@ -989,14 +998,15 @@ def show_visuals(kind, rows, i=0):
             c1, c2 = st.columns([5, 1.3], vertical_alignment="center")
             est, dart = r["estimated_salary_manwon"], r["dart_actual_salary_manwon"]
             if dart >= est:  # 공시가 더 높다: 보험료 상한 때문에 고연봉·성과급이 덜 잡힘
-                why = ("💡 실제 공시가 더 높은 가장 큰 이유: 국민연금은 월 659만 원(연 7,908만 원)까지만 소득을 잡아서, "
-                       "고연봉·성과급이 많은 회사일수록 추정이 낮게 나와요.")
+                why = ("실제 공시가 더 높은 건 주로 보험료 상한 때문이에요. 국민연금은 월 659만 원까지만 소득을 잡아서 "
+                       "연봉이 높거나 성과급이 많은 회사일수록 추정이 낮게 나와요.")
             else:  # 추정이 더 높다: 세는 사람·사업장 범위가 다름
-                why = ("💡 추정이 더 높은 가장 큰 이유: 사업보고서는 계약직·중간 입사자까지 넣은 회사 전체 직원 평균이고, "
-                       "국민연금은 이 사업장 가입자(임원 포함, 본사 위주)만 봐서 고연봉자 비중이 더 높게 잡힐 수 있어요.")
+                why = ("추정이 더 높은 건 주로 세는 사람이 달라서예요. 사업보고서는 계약직과 중간 입사자까지 넣은 회사 전체 평균이고, "
+                       "국민연금은 이 사업장 가입자(임원 포함, 본사 위주)만 봐요.")
             c1.markdown(f'<p class="s-why">{why}</p>', unsafe_allow_html=True)
-            with c2.popover("❓ 왜 다를까요?", use_container_width=True):
-                st.markdown(WHY_DIFF)
+            with c2.popover("공시가 왜 더 높을까요?" if dart >= est else "추정이 왜 더 높을까요?",
+                            icon=":material/help_outline:", use_container_width=True):
+                st.markdown(WHY_ACTUAL_HIGHER if dart >= est else WHY_EST_HIGHER)
         st.markdown(single_cards(r), unsafe_allow_html=True)
         my_year_box(r, i)
         similar_block(r)
@@ -1201,7 +1211,7 @@ def feedback_bar(i, user, answer):
     with st.container(key=f"fb{i}"):
         done = st.session_state.get(state)
         if done == "up" or done == "sent":
-            st.markdown('<p class="fb-q">의견 고마워요! 더 나은 추정에 쓸게요 🙏</p>', unsafe_allow_html=True)
+            st.markdown('<p class="fb-q">의견 고마워요. 추정을 다듬는 데 쓸게요.</p>', unsafe_allow_html=True)
             return
         names = [r.get("name") for r in answer.get("rows", []) if isinstance(r, dict) and r.get("name")][:5]
         rec = {"question": user[:300], "answer": (answer.get("content") or "")[:500],
@@ -1368,7 +1378,7 @@ def render_result(m, user, i):
                        + ("2025년 직원 증가율 높은 순" if m.get("hiring") else "추정 연봉 높은 순") + f" 상위 {len(m['rows'])}곳"
                        + (" · 맨 아래 '기타'는 10명 미만 사업장을 묶은 평균이에요" if m.get("small") else ""))
             if m.get("groups") and filters.UNKNOWN not in m["groups"]:
-                st.caption("💡 배민·당근처럼 업종이 비어 있는 큰 회사도 있어요. 안 보이면 '업종 정보 없음'도 골라 보세요.")
+                st.caption("배민, 당근처럼 업종이 비어 있는 큰 회사도 있어요. 안 보이면 '업종 정보 없음'도 골라 보세요.")
             st.markdown(compare_chart(m["rows"], m.get("small"), m.get("where", ""), keep_order=m.get("hiring", False)),
                         unsafe_allow_html=True)
             c1, c2 = st.columns([4, 1], vertical_alignment="bottom")
