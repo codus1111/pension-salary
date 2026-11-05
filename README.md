@@ -335,6 +335,9 @@ python src/compare_monthly.py 2026           # → reports/monthly_aligned.md
 | **Windows** | `run_app.bat` 더블클릭 |
 | **macOS · Linux · WSL** | `bash run_app.sh` |
 | **Docker** (어디서나 같은 환경) | `docker build -t pension-salary .` → `docker run -p 8501:8501 --env-file .env pension-salary` |
+| **설치 없이 브라우저에서** | GitHub 저장소 → Code → Codespaces → Create codespace (`.devcontainer` 설정으로 Python 3.12와 패키지가 자동 설치되고 앱이 뜬다) |
+
+모든 방법이 **같은 Python 버전(3.12)과 같은 `requirements.txt`**를 쓴다 (`.python-version`, `Dockerfile`, `.devcontainer`).
 
 - 처음 한 번은 가상환경(`.venv`)을 만들고 패키지를 설치해서 몇 분 걸린다. 그다음부터는 바로 열린다 → http://localhost:8501
 - `.env`가 없으면 `.env.example`을 복사해 만든다. **AI 질문**을 쓰려면 `.env`의 `GEMINI_API_KEY`를 채운다
