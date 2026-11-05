@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 GITHUB = "https://github.com/codus1111/pension-salary"
 
-st.set_page_config(page_title="회사 연봉 AI", page_icon="💼", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="회사 연봉 AI", page_icon=str(ROOT / "app" / "static" / "favicon.png"), layout="wide", initial_sidebar_state="collapsed")
 
 HERO = base64.b64encode((ROOT / "app" / "static" / "hero.webp").read_bytes()).decode()
 SUGGESTIONS = [
