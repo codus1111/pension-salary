@@ -16,6 +16,8 @@
 ![연봉 구간별 오차](reports/figures/2_error_by_salary_band.png)
 ![많이 틀렸던 대기업 10곳](reports/figures/3_top_misses.png)
 
+> 이 프로젝트를 처음부터 만든다면 쓸 수 있는 전체 프롬프트: [docs/project_prompt.md](docs/project_prompt.md)
+
 ## 목차
 1. [왜 이 프로젝트인가](#1-왜-이-프로젝트인가)
 2. [데이터](#2-데이터)
