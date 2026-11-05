@@ -395,6 +395,11 @@ def hero_copy():
                 '평균 연봉부터 회사 비교까지, AI와 함께 살펴보세요.</p></div>', unsafe_allow_html=True)
 
 
+# 공유 주소(?q=회사)는 들어오자마자 기억해 두고 주소창에서 지운다 (비밀번호 화면에서도). 새로고침하면 처음 화면이 나오게
+if st.query_params.get("q"):
+    st.session_state.setdefault("shared_q", st.query_params.get("q"))
+    st.query_params.clear()
+
 # 비밀번호 확인
 password = secret("APP_PASSWORD")
 if password and not st.session_state.get("authed"):
@@ -1006,10 +1011,8 @@ question = st.session_state.pop("pending_q", None)   # AI에게 물을 질문
 search_q = st.session_state.pop("pending_search", None)  # 회사 바로 보기
 # ⑦ 공유 주소(?q=회사)로 들어오면 그 회사를 바로 보여준다 (한 번만)
 # 주소창에는 남기지 않는다: 새로고침하면 검색 기록 없이 처음 화면이 나오게
-if not st.session_state.get("qp_done") and st.query_params.get("q"):
-    search_q = st.query_params.get("q")
-    st.session_state["qp_done"] = True
-    st.query_params.clear()
+if st.session_state.get("shared_q"):
+    search_q = st.session_state.pop("shared_q")
 
 import streamlit.components.v1 as components  # noqa: E402
 
