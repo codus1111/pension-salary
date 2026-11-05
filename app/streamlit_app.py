@@ -225,6 +225,7 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .gt-name {{ font-weight:600; color:var(--ink); min-width:140px; }}
 .gt-name small, .gt-num small {{ display:block; font-weight:400; font-size:11px; color:#8193a8; }}
 .gt th.gt-num {{ text-align:right; }}
+[data-testid="stHeaderActionElements"] {{ display:none !important; }}  /* 소제목 옆 🔗 링크 아이콘 */
 .gt-ticks span:first-child {{ transform:none; }}
 .gt-ticks span:last-child {{ transform:translateX(-100%); }}
 .ans-note {{ display:block; margin-top:8px; font-size:12.5px; color:#62758d; line-height:1.6; }}

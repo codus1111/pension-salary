@@ -261,6 +261,13 @@ def _tenure_curve(r):
         if cap is not None and cap < t_co:
             t_co = cap
             tenure_text = f"평균 근속 약 {t_co:.1f}년으로 가정 (최근 몇 년 새 직원이 크게 늘어, 직원 수 추이로 본 최대치)"
+        # 1년 퇴사율이 높으면(스타벅스 44%) 오래 다닌 사람이 적다: 평균 근속 ≈ 1 ÷ 1년 퇴사율 (25% 이상일 때만)
+        key = r["company_key"]
+        if not TURNOVER.empty and key in TURNOVER.index:
+            rate = float(TURNOVER.loc[key, "annual_exit_rate"])
+            if rate >= 0.25 and 1 / rate < t_co:
+                t_co = 1 / rate
+                tenure_text = f"평균 근속 약 {t_co:.1f}년으로 가정 (2025년 1년 퇴사율 {rate:.0%}로 본 값)"
     anchor = _curve_at(w, t_co)
     ratios = [v / anchor for v in w[1:]]
     first, last = w[1], w[5]
