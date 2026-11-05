@@ -596,6 +596,12 @@ def salary_ruler(r):
                 "낮게 잡혀요. 이런 회사는 실제 공시 숫자를 믿으세요.")
     else:
         note = f"📌 실제 공시 연봉({won(dart)} 원)이 범위보다 낮아요. 이런 회사는 실제 공시 숫자를 믿으세요."
+    # 점검에서 284곳(5%)은 추정값이 '가능성 높은 범위' 밖이었다. 비슷한 상장사들의 실제 연봉이 추정보다 한쪽으로 치우쳐 있어
+    # 범위를 그만큼 옮겨 잡았기 때문이라, 화면에 이유를 같이 적는다
+    if est < c or est > d:
+        side = "높았" if est < c else "낮았"
+        note = (f"📍 추정값({won(est)} 원)이 범위 밖에 있어요. 비슷한 회사들은 실제 연봉이 추정보다 대체로 {side}기 때문에 "
+                f"범위를 그쪽으로 옮겨 잡았어요. 실제 평균 연봉은 범위 안일 가능성이 더 커요.<br>" + note)
     return (f'<div class="sr"><p class="sr-head">평균 연봉은 <b>{won(c)} ~ {won(d)} 원</b> 사이일 가능성이 커요</p>'
             '<p class="sr-help"><b>추정 연봉</b> = 국민연금 보험료로 거꾸로 계산한 이 회사 전체 직원의 평균 연봉 · '
             '<b>가능성 높은 범위</b> = 비슷한 회사 2곳 중 1곳은 실제 평균 연봉이 이 안에 있었어요</p>'
@@ -1009,7 +1015,8 @@ if "history" not in st.session_state:
 # 첫 화면: 그림 배경 위에 제목 → 검색창 하나(조건 필터 포함) → 예시. 들어오자마자 여기서 바로 검색한다
 st.markdown("""<style>
 .st-key-hero { min-height:0 !important; padding:30px 38px 18px !important;
-               background-size:auto 118% !important; background-position:right -40px center !important; }
+               /* 구슬 그림 크기·위치를 고정: 검색 목록이 열려 상자가 커져도 그림이 커졌다 작아졌다 하지 않게 */
+               background-size:100% 100%, auto 520px !important; background-position:0 0, right -40px top -30px !important; }
 .s-eyebrow { margin:0 0 8px !important; }
 .s-hero h1 { margin:0 0 6px !important; line-height:1.25 !important; }
 .s-desc { margin:0 0 14px !important; line-height:1.6 !important; }

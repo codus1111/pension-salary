@@ -195,6 +195,7 @@ DART_TENURE = _dart_tenure_slopes() if TENURE else {}
 # 단기·교대 근로가 많아 오래 다닌 사람이 적은 업종 (2025년 1년 퇴사율 중간값 43~77%, 직원 100명 이상)
 SHORT_RE = __import__("re").compile("음식|음료|커피|주점|제과|제빵|구내식당|호텔|숙박|청소|경비|경호|건물 관리|부동산 관리|"
                                     "인력 공급|고용 알선|공사업")
+MIN_WAGE_YEAR = 10_320 * 209 * 12  # 2026년 최저임금(시급 10,320원)으로 주 40시간 1년 ≈ 2,588만 원
 TENURE_MID = [0.5, 2, 4, 7.5, 15]  # 근속 구간 가운데 값 (10년 이상은 15년으로 본다)
 
 
@@ -276,17 +277,21 @@ def _tenure_curve(r):
                 tenure_text = f"평균 근속 약 {t_co:.1f}년으로 가정 (2025년 1년 퇴사율 {rate:.0%}로 본 값)"
     anchor = _curve_at(w, t_co)
     ratios = [v / anchor for v in w[1:]]
+    # 회사 평균이 낮은 곳(단시간 근로자가 많이 섞인 곳)은 신입 값이 최저임금 1년치보다 낮게 나와서(점검 754곳), 그 아래로는 내리지 않는다
+    floored = any(base * x < MIN_WAGE_YEAR for x in ratios)
+    vals = [max(base * x, MIN_WAGE_YEAR) for x in ratios]
+    years = [max(base * _curve_at(w, t + 0.5) / anchor, MIN_WAGE_YEAR) for t in range(21)]
     first, last = w[1], w[5]
     dart = DART_TENURE.get(r["group"])
     out = {"industry_basis": industry.split(".")[-1],
            "buckets": TENURE_LABELS,
-           "ratio_to_average": [round(x, 2) for x in ratios],
+           "ratio_to_average": [round(v / base, 2) for v in vals],
            "base_text": ("공시 평균 급여 " if actual else "추정 평균 연봉 ") + _won_text(base),
            "tenure_text": tenure_text,
-           "salary_manwon": [_manwon(base * x) for x in ratios],
-           "salary_text": [_won_text(base * x) for x in ratios],
+           "salary_manwon": [_manwon(v) for v in vals],
+           "salary_text": [_won_text(v) for v in vals],
            # '내 연차' 입력용: 0년 차(신입) ~ 20년 차. t년 차는 근속 t+0.5년으로 본다
-           "by_year_manwon": [_manwon(base * _curve_at(w, t + 0.5) / anchor) for t in range(21)],
+           "by_year_manwon": [_manwon(v) for v in years],
            "growth_text": f"같은 업종에서 10년 이상 근속자의 임금은 1년 미만의 약 {last / first:.1f}배",
            "dart_compare_text": (None if dart is None else
                                  f"상장사 {dart[1]:,}곳 비교: 평균 근속이 1년 긴 회사는 평균 급여가 "
@@ -297,6 +302,10 @@ def _tenure_curve(r):
            "meaning": ("이 회사의 실제 연차별 연봉이 아니라, '업종의 연차별 임금 차이를 이 회사에 적용하면'의 참고값이다. "
                        "검증하지 않았고, 회사마다 호봉 체계·성과급이 달라 크게 다를 수 있다. 특히 대기업은 성과급·주식 보상이 "
                        "고참에게 몰려 있어 신입 값이 실제보다 높게 나오기 쉽다")}
+    if floored:
+        out["meaning"] += (". 계산하면 최저임금 1년치(약 2,588만 원)보다 낮은 연차가 있어 그 값은 최저임금으로 맞췄어요. "
+                           "단시간 근로자가 많이 섞여 회사 평균이 낮게 잡혔을 수 있어요")
+        out["floored_to_min_wage"] = True
     if r["cap_ratio"] >= 0.9 and not actual:
         out["meaning"] += ". 평균 소득이 보험료 상한에 가까워 회사 평균 추정 자체가 낮게 나왔을 수 있다"
     return out
