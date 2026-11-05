@@ -8,6 +8,7 @@ src/agent.py의 에이전트(직접 만든 반복 구조 + 도구 5개)를 그�
 """
 import base64
 import html
+from urllib.parse import quote
 import os
 import re
 import sys
@@ -122,6 +123,27 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .s-card em {{ display:block; font-style:normal; color:var(--muted); font-size:11px; margin-top:2px; }}
 .s-card.main b {{ color:var(--blue); }}
 .s-card.ref {{ background:#fafbfd; border-style:dashed; }}
+.tr {{ background:white; border:1px solid var(--line); border-radius:14px; padding:12px 14px 8px; margin:10px 0 4px; }}
+.tr > small {{ color:var(--muted); font-size:12px; }}
+.tr > small b.up {{ color:#0868ec; }}
+.tr > small b.down {{ color:#d9731a; }}
+.tr-bars {{ display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:10px; height:150px; align-items:end; margin-top:10px; }}
+.tr-bar {{ display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; }}
+.tr-bar b {{ font-size:11px; color:#24456c; white-space:nowrap; margin-bottom:3px; }}
+.tr-bar span {{ display:block; width:70%; max-width:46px; background:linear-gradient(180deg,#5b9bff,#0868ec);
+                border-radius:6px 6px 0 0; min-height:4px; transform-origin:bottom; }}
+.tr-bar:last-child span {{ background:linear-gradient(180deg,#0868ec,#0550c0); }}
+.tr-bar em {{ font-style:normal; font-size:11px; color:#3a5170; margin-top:4px; }}
+.tr-bar i {{ font-style:normal; font-size:10px; color:#8193a8; }}
+.tr-basis {{ font-size:11px !important; color:#8193a8 !important; margin:6px 0 0; }}
+.tr p:not(.tr-basis) {{ font-size:12px !important; color:#3a5170 !important; margin:4px 0 0; line-height:1.6; }}
+@media (prefers-reduced-motion:no-preference) {{ .tr-bar span {{ animation:s-grow-y .6s cubic-bezier(.2,.7,.2,1) both; }} }}
+@media (max-width:640px) {{ .tr-bars {{ gap:4px; height:130px; }} .tr-bar b {{ font-size:9px; }} }}
+.s-links {{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin:10px 0 4px; }}
+.s-links small {{ font-size:11px; color:var(--muted); margin-right:2px; }}
+.s-links a {{ font-size:12px; color:#24456c !important; text-decoration:none; background:white; border:1px solid #d9e5f4;
+              border-radius:99px; padding:5px 11px; white-space:nowrap; }}
+.s-links a:hover {{ border-color:#0868ec; color:#0868ec !important; }}
 .s-card.ref b {{ color:#62758d; }}
 .s-cards3 {{ grid-template-columns:repeat(3,minmax(0,1fr)); }}
 .s-cards2 {{ grid-template-columns:repeat(2,minmax(0,1fr)); }}
@@ -412,7 +434,7 @@ def load_agent(version):
     import gc
     import importlib
     if "mcp_server" in sys.modules:  # 옛 데이터를 먼저 놓아줘야 새 데이터와 두 벌이 되지 않는다 (무료 서버 메모리 부족 방지)
-        for attr in ("DATA", "TURNOVER", "HEADCOUNT", "REGION_SITES"):
+        for attr in ("DATA", "TURNOVER", "HEADCOUNT", "REGION_SITES", "TREND"):
             setattr(sys.modules["mcp_server"], attr, None)
         gc.collect()
     for name in ("brands", "filters", "mcp_server", "agent"):  # 서로 import하는 순서대로
@@ -629,6 +651,33 @@ def show_answer(text, unchecked=()):
                    "아래 카드와 그래프의 숫자는 데이터에서 바로 가져온 값이라 정확해요.", icon="⚠️")
 
 
+LEGAL_RE = re.compile(r"\((?:주|유|재|사)\)|（주）|주식회사|유한회사|유한책임회사|농업회사법인|사단법인|재단법인|\(.*?[A-Za-z].*?\)")
+
+
+def search_name(name):
+    """채용 사이트 검색용 이름: '（주）비바리퍼블리카' → '비바리퍼블리카', '라라위드(LaLa with Inc.)' → '라라위드'."""
+    return re.sub(r"\s+", " ", LEGAL_RE.sub(" ", name or "")).strip() or (name or "")
+
+
+def links_html(name, company_key=None):
+    """회사 이름으로 바로 가는 버튼 4개. 공고는 사이트 약관상 가져오지 않고 그 사이트의 검색 결과로 보낸다.
+
+    블라인드는 재직자 인증이 있어야 제대로 볼 수 있어 취준생에게 쓸모가 없어서 넣지 않았다.
+    공식 홈페이지: 상장사는 DART에 등록된 주소, 나머지는 '회사명 공식 홈페이지' 검색.
+    """
+    q = quote(search_name(name))
+    home = (getattr(agent.tools, "HOMEPAGE", {}) or {}).get(company_key)
+    items = [
+        ("🏢 공식 홈페이지" if home else "🏢 홈페이지 찾기",
+         home or f"https://search.naver.com/search.naver?query={q}+%EA%B3%B5%EC%8B%9D+%ED%99%88%ED%8E%98%EC%9D%B4%EC%A7%80"),
+        ("💼 사람인 채용공고", f"https://www.saramin.co.kr/zf_user/search?searchword={q}"),
+        ("💼 잡코리아 채용공고", f"https://www.jobkorea.co.kr/Search/?stext={q}"),
+        ("⭐ 잡플래닛 리뷰", f"https://www.jobplanet.co.kr/search?query={q}"),
+    ]
+    return ('<div class="s-links"><small>더 알아보기</small>' + "".join(
+        f'<a href="{html.escape(u)}" target="_blank" rel="noopener noreferrer">{t}</a>' for t, u in items) + "</div>")
+
+
 def card(label, value, sub="", main=False, ref=False):
     cls = " main" if main else " ref" if ref else ""
     return (f'<div class="s-card{cls}"><small>{label}</small><b>{html.escape(str(value))}</b>'
@@ -673,9 +722,33 @@ def single_cards(r):
     out = '<div class="s-cards">' + "".join(cards) + "</div>"
     if second:
         out += f'<div class="s-cards s-cards{len(second)}">' + "".join(second) + "</div>"
+    if r.get("salary_trend"):
+        out += trend_chart(r["salary_trend"])
     if year and year.get("monthly_members"):
         out += headcount_chart(year["monthly_members"])
-    return out
+    return out + links_html(r["name"], r.get("company_key"))
+
+
+def trend_chart(tr):
+    """연봉 상승 추이 (2019~2025년 소득). 막대 = 그해 1차 추정 연봉, 아래 = 그해 직원 수.
+
+    신입·경력 채용이 많으면 평균이 내려가 보이므로(토스: 직원 2배 → 평균 하락) 직원 수를 꼭 같이 보여준다.
+    """
+    vals = tr["salary_manwon"]
+    hi = max(vals)
+    bars = "".join(
+        f'<div class="tr-bar" title="{y}년 소득 · {won(v)} 원 · 직원 {m:,}명">'
+        f'<b>{won(v)}</b><span style="height:{v / hi * 100:.0f}%"></span><em>{y}</em><i>{m:,}명</i></div>'
+        for y, v, m in zip(tr["years"], vals, tr["members"]))
+    g = tr.get("annual_growth_pct")
+    # '한 사람이 연차가 쌓이며 오르는 연봉'으로 오해하지 않게, 그해 회사 전체 평균의 변화라고 이름에 적는다
+    head = (f'<small>회사 평균 연봉 변화 (연도별) · {tr["change_text"]}</small>'
+            if g is None else f'<small>회사 평균 연봉 변화 (연도별) · 연평균 <b class="{"up" if g >= 0 else "down"}">{g:+.1f}%</b> · '
+                                f'{html.escape(tr["change_text"].split(" (")[0])}</small>')
+    notes = "".join(f"<p>💡 {html.escape(n)}</p>" for n in tr.get("notes", []))
+    return (f'<div class="tr">{head}<div class="tr-bars">{bars}</div>'
+            f'<p class="tr-basis">그해 회사에 있던 직원 전체의 평균이에요 (한 사람의 연차별 연봉이 아니에요) · '
+            f'막대 아래 숫자는 그해 직원 수 · {html.escape(tr["basis"])}</p>{notes}</div>')
 
 
 def headcount_chart(series):
@@ -863,15 +936,24 @@ with st.container(key="explore"):
         name_q = st.text_input("회사 이름", placeholder="예: 토스, 배민, 현대차, 카카오", label_visibility="collapsed")
         if name_q.strip():
             hits = agent.tools.search_company(name_q, limit=8)
+            note = agent.tools.brand_note(name_q) if hasattr(agent.tools, "brand_note") else None
+            if note and hits:
+                st.caption("🔎 " + note)
             if not hits:
-                st.info("찾는 회사가 없어요. 정식 회사 이름(법인명)으로도 찾아보세요.")
+                # 라라스윗처럼 국민연금 공개 자료에 아예 없는 회사도 있다 (다른 법인 이름으로 신고했거나 공개 대상이 아님).
+                # 연봉 추정은 못 해도 채용 정보는 볼 수 있게, 입력한 이름 그대로 검색 버튼을 준다
+                print(f"[검색 0건] {name_q.strip()}", flush=True)  # 배포 로그에 쌓아 브랜드명 사전 후보로 쓴다
+                st.info("국민연금 공개 자료에서 이 이름을 찾지 못했어요. 정식 회사 이름(법인명)으로 다시 찾아보거나, "
+                        "아래 버튼으로 채용 정보를 먼저 볼 수 있어요. (다른 법인 이름으로 신고했거나 공개 자료에 없는 회사일 수 있어요)")
+                st.markdown(links_html(name_q.strip()), unsafe_allow_html=True)
             for j, h in enumerate(hits):
                 c1, c2 = st.columns([5, 1], vertical_alignment="center")
                 tiny = h["members"] < 10
                 c1.markdown(f"**{h['name']}**{' `소규모`' if tiny else ''}  \n<span class='s-caption'>"
                             f"{h['industry'] if filters.group_of(h['industry']) != filters.UNKNOWN else '업종 정보 없음'}"
                             f" · {h['region'] or '-'} · {h['members']:,}명"
-                            f"{' · 상장사' if h['listed'] else ''}</span>", unsafe_allow_html=True)
+                            f"{' · 상장사' if h['listed'] else ''}</span>" + links_html(h["name"], h["company_key"]),
+                            unsafe_allow_html=True)
                 if c2.button("AI에게 묻기", key=f"nm{j}", use_container_width=True):
                     ask_about(h["name"])
             # 10명 미만은 한 곳만 보면 오차가 커서, 같은 업종 묶음·지역의 소규모 사업장 평균을 같이 보여준다

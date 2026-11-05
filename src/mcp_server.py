@@ -23,7 +23,7 @@ from mcp.server.mcpserver import MCPServer
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 from match import to_hangul  # noqa: E402
-from brands import to_legal  # noqa: E402
+from brands import brand_note, to_legal  # noqa: E402
 import filters  # noqa: E402
 
 # 분석한 컴퓨터에는 data/processed, 웹 배포(저장소)에는 작게 만든 data/app만 있다 (src/make_app_data.py)
@@ -49,6 +49,8 @@ INSTRUCTIONS = (
     "'가장 가능성 높은 범위(2곳 중 1곳)'는 likely_range_text, '넓게 보면(10곳 중 8곳)'은 range_text. "
     "금액은 직접 계산하거나 단위를 바꾸지 말고 *_text 필드('1억 171만 원' 꼴)를 그대로 옮겨 쓴다. "
     "업종 안의 위치는 industry_position_text를 그대로 쓴다. "
+    "연봉이 오르는지·추이를 물으면 salary_trend의 change_text와 notes(직원 수 변화, 상한 영향)를 함께 전한다. "
+    "이것은 '회사 평균의 연도별 변화'이지 '한 사람의 연차별 연봉'이 아니라고 분명히 말한다. "
     "답에는 도구 결과의 영어 필드 이름(예: avg_income_vs_cap_pct)을 쓰지 말고 우리말로만 설명한다. "
     f"보험료 상한은 기억으로 쓰지 말고 지금 값(기준소득월액 월 {META['cap_monthly'] / 1e4:,.0f}만 원, 연 {CAP_ANNUAL / 1e4:,.0f}만 원)만 쓴다. "
     "정확도를 물으면 method_and_limits의 accuracy_text 숫자를 꼭 넣는다. "
@@ -131,6 +133,39 @@ EXIT_MEDIAN = DATA[DATA["members"] >= 30].groupby("group")["monthly_exit_rate"].
 _load = lambda name: (pd.read_parquet(DATA_DIR / name).set_index("company_key")  # noqa: E731
                       if (DATA_DIR / name).exists() else pd.DataFrame())
 TURNOVER, HEADCOUNT = _load("turnover_2025.parquet"), _load("headcount_2025.parquet")
+# 연봉 상승 추이: 해마다 9월 자료의 1차 추정 (2019~2025년 소득, src/make_trend_data.py)
+TREND = _load("trend.parquet")
+TREND_YEARS = sorted(int(c[4:]) for c in TREND.columns if c.startswith("est_")) if not TREND.empty else []
+
+
+def _trend(key):
+    """연도별 1차 추정 연봉과 직원 수. 신입을 많이 뽑으면 평균이 내려가 보여서 직원 수를 같이 준다."""
+    if TREND.empty or key not in TREND.index:
+        return None
+    t = TREND.loc[key]
+    pts = [(y, t[f"est_{y}"], t[f"members_{y}"]) for y in TREND_YEARS if not pd.isna(t[f"est_{y}"])]
+    if len(pts) < 3:
+        return None
+    (y0, e0, m0), (y1, e1, m1) = pts[0], pts[-1]
+    cagr = float((e1 / e0) ** (1 / (y1 - y0)) - 1) if e0 > 0 and y1 > y0 else None  # float32 그대로면 JSON이 안 된다
+    notes = []
+    if m0 > 0 and m1 / m0 > 1.3 and e1 < max(e for _, e, _ in pts):
+        notes.append(f"직원이 {int(m0):,}명에서 {int(m1):,}명으로 크게 늘었다. 새로 뽑은 사람이 많으면 평균이 내려가 보일 수 있어, "
+                     "연봉이 깎였다는 뜻은 아니다.")
+    if t[f"cap_{y1}"] >= 0.9:
+        notes.append("평균 소득이 보험료 상한에 거의 닿아 있어, 해마다 오르는 상한(2019년 월 503만 → 2025년 월 659만 원)만큼만 "
+                     "오르는 것처럼 보일 수 있다. 실제 상승은 더 클 수 있다.")
+    return {"years": [p[0] for p in pts], "salary_manwon": [int(p[1]) for p in pts], "members": [int(p[2]) for p in pts],
+            "change_text": f"{y0}년 {_won_text(e0 * 1e4)} → {y1}년 {_won_text(e1 * 1e4)}"
+                           + (f" (연평균 {cagr:+.1%})" if cagr is not None else ""),
+            "annual_growth_pct": None if cagr is None else round(cagr * 100, 1),
+            "basis": "해마다 9월 국민연금 자료(그 전해 소득)로 계산한 1차 추정. 보정 전 값이라 지금 추정 연봉과 조금 다를 수 있다",
+            "meaning": "그해 회사에 있던 직원 전체의 평균 연봉 변화다. 한 사람이 입사 후 연차가 쌓이며 오르는 연봉이 아니다",
+            "notes": notes}
+
+
+# 상장사 공식 홈페이지 (DART 기업개황 hm_url, src/make_link_data.py). 웹 화면의 '공식 홈페이지' 버튼용
+HOMEPAGE = _load("homepage.parquet")["hm_url"].to_dict() if (DATA_DIR / "homepage.parquet").exists() else {}
 YEAR_EXIT_MEDIAN = ({} if TURNOVER.empty else
                     TURNOVER[TURNOVER["avg_members"] >= 30].join(DATA.set_index("company_key")["group"])
                     .groupby("group")["annual_exit_rate"].median().to_dict())
@@ -239,6 +274,7 @@ def _summary(r):
         "notes": _notes(r),
         "small_business_group": _small_group(r),
         "shrunk_estimate": _shrunk(r),
+        "salary_trend": _trend(r["company_key"]),
         "turnover": _turnover(r),
         "confidence": _confidence(r),
     }
@@ -294,8 +330,12 @@ def search_company(query: str, limit: int = 8) -> list[dict]:
     hit = pd.concat([hit, prefix[~prefix["company_key"].isin(hit["company_key"])]])
     hit["tiny"] = (hit["members"] < 10).astype(int)
     hit = hit.sort_values(["tiny", "rank", "members"], ascending=[True, True, False]).head(max(1, min(limit, 20)))
-    return [{"company_key": r.company_key, "name": r.sample_nm, "industry": _text(r.intp_nm), "region": _text(r.sido),
-             "members": int(r.members), "listed": not pd.isna(r.dart_avg_salary)} for r in hit.itertuples()]
+    out = [{"company_key": r.company_key, "name": r.sample_nm, "industry": _text(r.intp_nm), "region": _text(r.sido),
+            "members": int(r.members), "listed": not pd.isna(r.dart_avg_salary)} for r in hit.itertuples()]
+    note = brand_note(query)
+    if note and out:  # 확인 안 된 브랜드 연결(라라스윗 → 오디너리)은 AI도 '추정'이라고 말하게
+        out[0]["brand_note"] = note
+    return out
 
 
 @mcp.tool()

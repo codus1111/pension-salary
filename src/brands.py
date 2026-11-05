@@ -30,10 +30,31 @@ BRANDS = {
 }
 
 
+# 사용자 피드백으로 찾은 연결 중 공식 자료로 확인하지 못한 것: 연결은 하되 화면에 '추정'이라고 알린다
+UNVERIFIED = {
+    # 라라스윗: 2025-09 자료까지 '주식회사라라스윗'(86명, 군포공장·의왕)이 있었는데 2026-09 자료에서 사라지고,
+    # 같은 사업자번호 앞자리(262880)에 '주식회사 오디너리'(아이스크림·유제품 제조)와 '오디너리 의왕'이 새로 생겼다.
+    # 앞자리를 쓰는 회사가 70곳이라 확정할 수 없어 '이름이 바뀐 것으로 보인다'고만 안내한다
+    "라라스윗": ("오디너리", "라라스윗은 2026년 9월 자료에서 '주식회사 오디너리'로 이름이 바뀐 것으로 보여요 "
+                            "(사업자번호 앞자리·의왕 사업장·아이스크림 제조 업종이 같음). 공식 확인은 안 된 연결이에요."),
+}
+
+
 def to_legal(query):
     """브랜드명이면 법인명을, 아니면 None. 띄어쓰기·대소문자는 무시한다."""
     q = query.strip().lower()
-    return BRANDS.get(q) or BRANDS.get(q.replace(" ", ""))
+    hit = BRANDS.get(q) or BRANDS.get(q.replace(" ", ""))
+    if hit:
+        return hit
+    u = UNVERIFIED.get(q) or UNVERIFIED.get(q.replace(" ", ""))
+    return u[0] if u else None
+
+
+def brand_note(query):
+    """확인 안 된 연결이면 안내 문구를, 아니면 None."""
+    q = query.strip().lower()
+    u = UNVERIFIED.get(q) or UNVERIFIED.get(q.replace(" ", ""))
+    return u[1] if u else None
 
 
 def check_brands():

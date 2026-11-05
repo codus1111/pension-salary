@@ -126,6 +126,37 @@ def company(key, year):
     print("완료:", out_path, flush=True)
 
 
+def homepage(key):
+    """기업개황의 홈페이지 주소(hm_url)만 따로 받는다. 웹 화면의 '공식 홈페이지' 버튼용.
+
+    dart_company.jsonl을 만들 때는 매칭에 필요한 칸만 남겨서 홈페이지가 없었다. 이어받기 지원.
+    """
+    src, out_path = RAW / "dart_company.jsonl", RAW / "dart_homepage.jsonl"
+    codes = [json.loads(line)["corp_code"] for line in src.open(encoding="utf-8")]
+    done = set()
+    if out_path.exists():
+        done = {json.loads(line)["corp_code"] for line in out_path.open(encoding="utf-8")}
+    todo = [c for c in codes if c not in done]
+    print(f"받을 회사 {len(todo):,}곳 (이미 받은 {len(done):,}곳 제외)", flush=True)
+    with out_path.open("a", encoding="utf-8") as f:
+        for i, code in enumerate(todo, 1):
+            try:
+                res = json.loads(get("company.json", crtfc_key=key, corp_code=code))
+            except Exception as e:
+                print(f"  오류 {code}: {e}", flush=True)
+                time.sleep(2)
+                continue
+            if res.get("status") == "020":
+                print("하루 요청 한도 초과. 내일 같은 명령으로 이어서 받으면 됩니다.", flush=True)
+                break
+            f.write(json.dumps({"corp_code": code, "hm_url": (res.get("hm_url") or "").strip()}, ensure_ascii=False) + "\n")
+            f.flush()
+            if i % 200 == 0:
+                print(f"  {i:,}/{len(todo):,} 진행", flush=True)
+            time.sleep(SLEEP)
+    print("완료:", out_path, flush=True)
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1]
     key = load_key()
@@ -137,3 +168,5 @@ if __name__ == "__main__":
         fetch(key, sys.argv[2])
     elif cmd == "company":
         company(key, sys.argv[2])
+    elif cmd == "homepage":
+        homepage(key)
