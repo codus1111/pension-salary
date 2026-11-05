@@ -224,6 +224,10 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .gt-rank {{ width:30px; color:#8193a8; font-variant-numeric:tabular-nums; text-align:center; }}
 .gt-name {{ font-weight:600; color:var(--ink); min-width:140px; }}
 .gt-name small, .gt-num small {{ display:block; font-weight:400; font-size:11px; color:#8193a8; }}
+.gt th.gt-num {{ text-align:right; }}
+.gt-ticks span:first-child {{ transform:none; }}
+.gt-ticks span:last-child {{ transform:translateX(-100%); }}
+.ans-note {{ display:block; margin-top:8px; font-size:12.5px; color:#62758d; line-height:1.6; }}
 .gt-num {{ text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }}
 .gt-num .v-e {{ color:#0868ec; }}
 .gt-num .v-d {{ color:#d9731a; }}
@@ -561,7 +565,7 @@ def compare_chart(rows, small=None, small_where=""):
     if small:
         vals += [*small["middle50_manwon"], small["avg_manwon"]]
     span = max(vals) - min(vals) or 1000
-    step = next(s for s in (500, 1000, 2000, 5000, 10000) if span / s <= 5)
+    step = next((s for s in (500, 1000, 2000, 2500, 5000, 10000, 20000) if span / s <= 4), 50000)  # 눈금 글자가 겹치지 않게 4칸 이하
     lo, hi = (min(vals) // step) * step, -(-max(vals) // step) * step
     pos = lambda v: (v - lo) / (hi - lo) * 100  # noqa: E731
     ticks = "".join(f'<span style="left:{pos(t):.1f}%">{won(t)}</span>' for t in range(lo, hi + 1, step))
@@ -641,6 +645,10 @@ def main_salaries(trace):
     return out
 
 
+NOTE_RE = re.compile(r"[ \t]*\(\s*(※(?:[^()]|\([^()]*\))*)\)")  # '(※ … (괄호) …)'까지
+NOTE_MARK = "@@NOTE@@"
+
+
 def show_answer(text, unchecked=()):
     """AI 답변을 그린다.
 
@@ -650,8 +658,12 @@ def show_answer(text, unchecked=()):
     """
     # 답에 `avg_income_vs_cap_pct` 같은 도구 필드 이름이 섞여 나온 적이 있어서, 백틱 속 영어 변수 이름은 지운다
     text = FIELD_RE.sub("", text or "")
+    # 답 끝에 붙는 '(※ …)' 설명은 문장 사이에 끼면 읽기 어려워서, 줄을 바꿔 작은 글씨로 아래에 둔다
+    text = NOTE_RE.sub(lambda m: "\n\n" + NOTE_MARK + m.group(1).strip() + "\n\n", text)
+    text = re.sub(r"(?<=[^\s(@])[ \t]*(※)", "\n\n" + NOTE_MARK + r"\1", text)
     # &와 <만 막는다. >까지 바꾸면 Markdown 인용 상자(> …)가 '&gt;' 글자로 보였다
     safe = BOLD_RE.sub(r"<b>\1</b>", text.replace("&", "&amp;").replace("<", "&lt;"))
+    safe = re.sub(re.escape(NOTE_MARK) + r"([^\n]+)", r'<span class="ans-note">\1</span>', safe)
     st.markdown(safe, unsafe_allow_html=True)
     if unchecked:
         shown = ", ".join(f"{a:,}만 원" for a in unchecked[:3])
@@ -914,8 +926,9 @@ def feedback_bar(i, user, answer):
                     st.session_state[state] = "sent"
                     st.rerun()
             return
-        c0, c1, c2, _ = st.columns([2.2, 0.8, 0.8, 4], vertical_alignment="center")
-        c0.markdown('<p class="fb-q">이 추정 도움이 됐나요?</p>', unsafe_allow_html=True)
+        row = st.container(horizontal=True, vertical_alignment="center", gap="small")
+        row.markdown('<p class="fb-q">이 추정 도움이 됐나요?</p>', unsafe_allow_html=True, width="content")
+        c1 = c2 = row
         if c1.button("👍", key=f"fbup{i}", help="도움이 됐어요"):
             save_feedback({**rec, "vote": "👍", "comment": ""})
             st.session_state[state] = "up"
