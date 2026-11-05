@@ -1042,12 +1042,23 @@ with st.container(key="explore"):
     by_name, by_filter = st.tabs(["🔎 이름으로 찾기", "🎛️ 조건으로 찾기"])
 
     with by_name:
-        name_q = st.text_input("회사 이름", placeholder="예: 토스, 배민, 현대차, 카카오", label_visibility="collapsed")
+        name_q = st.text_input("회사 이름", placeholder="예: 토스, 배민, 현대차, 카카오", label_visibility="collapsed",
+                               key="name_q")
         if name_q.strip():
             hits = agent.tools.search_company(name_q, limit=8)
             note = agent.tools.brand_note(name_q) if hasattr(agent.tools, "brand_note") else None
             if note and hits:
                 st.caption("🔎 " + note)
+            # 오타 추천: 결과가 없으면 가장 비슷한 이름을 '○○(으)로 검색하시겠어요?' 버튼으로 (예: 카카우 → 카카오)
+            qk = agent.tools._key(agent.tools.to_legal(name_q) or name_q)
+            # 결과가 없거나, 작은 가게뿐이거나, 검색어가 이름에 그대로 든 회사가 없으면 ('현대자등차' → 현대회계법인만 나옴)
+            weak = (not hits or all(h["members"] < 10 for h in hits)
+                    or not any(qk in agent.tools._key(h["name"]) for h in hits))
+            guess = agent.tools.suggest_name(name_q) if weak and hasattr(agent.tools, "suggest_name") else None
+            if guess:
+                guess = search_name(guess)  # '현대자동차(주)' → '현대자동차' (괄호까지 넣으면 작은 지점이 먼저 나온다)
+                st.button(f"🔎 '{guess}'(으)로 검색하시겠어요?", key="suggest",
+                          on_click=lambda g=guess: st.session_state.update(name_q=g))
             if not hits:
                 # 라라스윗처럼 국민연금 공개 자료에 아예 없는 회사도 있다 (다른 법인 이름으로 신고했거나 공개 대상이 아님).
                 # 연봉 추정은 못 해도 채용 정보는 볼 수 있게, 입력한 이름 그대로 검색 버튼을 준다

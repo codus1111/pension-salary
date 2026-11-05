@@ -24,7 +24,7 @@ from mcp.server.mcpserver import MCPServer
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 from match import to_hangul  # noqa: E402
-from brands import brand_note, to_legal  # noqa: E402
+from brands import BRANDS, UNVERIFIED, brand_note, to_legal  # noqa: E402
 import filters  # noqa: E402
 
 # 분석한 컴퓨터에는 data/processed, 웹 배포(저장소)에는 작게 만든 data/app만 있다 (src/make_app_data.py)
@@ -192,7 +192,9 @@ def _dart_tenure_slopes():
 DART_TENURE = _dart_tenure_slopes() if TENURE else {}
 
 
-FOOD_RE = __import__("re").compile("음식|음료|커피|주점|제과|제빵")
+# 단기·교대 근로가 많아 오래 다닌 사람이 적은 업종 (2025년 1년 퇴사율 중간값 43~77%, 직원 100명 이상)
+SHORT_RE = __import__("re").compile("음식|음료|커피|주점|제과|제빵|구내식당|호텔|숙박|청소|경비|경호|건물 관리|부동산 관리|"
+                                    "인력 공급|고용 알선|공사업")
 TENURE_MID = [0.5, 2, 4, 7.5, 15]  # 근속 구간 가운데 값 (10년 이상은 15년으로 본다)
 
 
@@ -262,11 +264,11 @@ def _tenure_curve(r):
         if cap is not None and cap < t_co:
             t_co = cap
             tenure_text = f"평균 근속 약 {t_co:.1f}년으로 가정 (최근 몇 년 새 직원이 크게 늘어, 직원 수 추이로 본 최대치)"
-        # 요식업(카페·음식점 등)은 단기 근로가 많아 오래 다닌 사람이 적다: 평균 근속 ≈ 1 ÷ 1년 퇴사율 (25% 이상일 때만).
+        # 요식업·호텔·청소·경비·시설관리·인력 공급·공사 현장은 단기 근로가 많아 오래 다닌 사람이 적다: 평균 근속 ≈ 1 ÷ 1년 퇴사율 (25% 이상일 때만).
         # 다른 업종은 퇴사율에 계열사 이동이 섞여(토스 57%) 근속을 너무 짧게 잡게 돼 적용하지 않는다.
         # 스타벅스(에스씨케이컴퍼니)는 '커피 및 차류 도매업'으로 등록돼 있어 업종 이름으로도 찾는다
         key = r["company_key"]
-        food = r["group"] == "숙박·음식" or bool(FOOD_RE.search(str(r["intp_nm"] or "")))
+        food = r["group"] == "숙박·음식" or bool(SHORT_RE.search(str(r["intp_nm"] or "")))
         if food and not TURNOVER.empty and key in TURNOVER.index:
             rate = float(TURNOVER.loc[key, "annual_exit_rate"])
             if rate >= 0.25 and 1 / rate < t_co:
@@ -469,6 +471,43 @@ def search_company(query: str, limit: int = 8) -> list[dict]:
     if note and out:  # 확인 안 된 브랜드 연결(라라스윗 → 오디너리)은 AI도 '추정'이라고 말하게
         out[0]["brand_note"] = note
     return out
+
+
+def _jamo(text):
+    """한글을 자모로 풀어 쓴다 ('카카오' → 'ㅋㅏㅋㅏㅇㅗ'). 글자 하나가 틀린 오타도 비슷하게 잡히게."""
+    out = []
+    for ch in text:
+        c = ord(ch) - 0xAC00
+        if 0 <= c < 11172:
+            out += [chr(0x1100 + c // 588), chr(0x1161 + c % 588 // 28)] + ([chr(0x11A7 + c % 28)] if c % 28 else [])
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+_SUGGEST = None
+
+
+def suggest_name(query: str) -> str | None:
+    """검색 결과가 없을 때 가장 비슷한 회사·브랜드 이름 하나 ('카카우' → '카카오', '스타벅수' → '스타벅스').
+
+    후보는 브랜드 사전과 직원 30명 이상 회사 이름 (작은 회사까지 넣으면 엉뚱한 이름이 잡힌다).
+    """
+    global _SUGGEST
+    import difflib
+    if _SUGGEST is None:
+        big = DATA[DATA["members"] >= 30].sort_values("members", ascending=False).drop_duplicates("key_nm")
+        names = {**{_key(b): b for b in [*BRANDS, *UNVERIFIED]}, **dict(zip(big["key_nm"], big["sample_nm"]))}
+        _SUGGEST = {_jamo(k): v for k, v in names.items() if k}
+    k = _key(query)
+    if not k:
+        return None
+    best = difflib.get_close_matches(_jamo(k), list(_SUGGEST), n=1, cutoff=0.75)
+    if not best or best[0] == _jamo(k):
+        return None
+    name = _SUGGEST[best[0]]
+    top = search_company(name, limit=1)
+    return name if top and top[0]["members"] >= 10 else None
 
 
 @mcp.tool()
