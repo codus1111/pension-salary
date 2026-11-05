@@ -1021,8 +1021,8 @@ if st.session_state.get("shared_q"):
 import streamlit.components.v1 as components  # noqa: E402
 
 searchbox = components.declare_component("searchbox", path=str(ROOT / "app" / "components" / "searchbox"))
-EXAMPLES = ["토스", "네이버랑 카카오 비교해줘", "삼성전자 신입 연봉", "스타벅스", "현대자동차 5년 차 연봉",
-            "증권업계 연봉 높은 회사", "배민 1년 퇴사율"]
+EXAMPLES = ["토스 평균 연봉 어느 정도야?", "네이버랑 카카오 비교해줘", "증권업계에서 연봉 높은 회사 어디야?",
+            "삼성전자 신입 연봉", "스타벅스", "현대자동차 5년 차 연봉", "배민 1년 퇴사율"]
 
 
 @st.cache_data(max_entries=1, show_spinner=False)  # 'Running search_options(...)' 같은 내부 문구가 화면에 보이지 않게
@@ -1082,10 +1082,7 @@ with st.container(key="hero"):
             if st.form_submit_button("이 조건으로 찾기", use_container_width=True):
                 st.session_state["pending_filter"] = dict(groups=groups, regions=regions, size=size, salary=salary,
                                                           hiring=hiring, growing=growing, listed=listed)
-    st.markdown('<p class="s-suggest-title">이렇게 검색해 보세요 · 누르면 바로 찾아봐요</p>', unsafe_allow_html=True)
-    for i, (col, (_, q)) in enumerate(zip(st.columns(3), SUGGESTIONS)):
-        if col.button(q, key=f"sg{i}", use_container_width=True):
-            search_q = q
+    # 예시 질문 카드는 검색칸 속 돌아가는 예시와 겹쳐서 지우고, 그 질문들을 돌아가는 예시에 넣었다
     st.markdown('<p class="s-note">국민연금 2026년 9월 자료 · DART 2025 사업연도(2025.1.1~12.31) 공시로 검증</p>',
                 unsafe_allow_html=True)
 
