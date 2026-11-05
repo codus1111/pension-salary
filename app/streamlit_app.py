@@ -24,6 +24,7 @@ GITHUB = "https://github.com/codus1111/pension-salary"
 st.set_page_config(page_title="회사 연봉 AI", page_icon=str(ROOT / "app" / "static" / "favicon.png"), layout="wide", initial_sidebar_state="collapsed")
 
 HERO = base64.b64encode((ROOT / "app" / "static" / "hero.webp").read_bytes()).decode()
+LOGO = base64.b64encode((ROOT / "app" / "static" / "favicon.png").read_bytes()).decode()  # 탭 아이콘과 같은 파란 구슬 ₩
 SUGGESTIONS = [
     ("회사 연봉 알아보기", "토스 평균 연봉 어느 정도야?"),
     ("두 회사 비교하기", "네이버랑 카카오 비교해줘"),
@@ -66,6 +67,8 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .s-nav {{ display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }}
 .s-brand {{ font-size:20px; font-weight:800; letter-spacing:-.8px; color:var(--ink); }}
 .s-brand span {{ color:var(--blue); }}
+.s-brand {{ display:flex; align-items:center; gap:8px; }}
+.s-brand img {{ width:30px; height:30px; }}
 .s-nav a {{ color:#48617f !important; font-size:12px; text-decoration:none; border:1px solid #d9e5f4;
             background:white; padding:9px 16px; border-radius:99px; }}
 .st-key-hero {{ position:relative; overflow:hidden; border:1px solid white; border-radius:30px; background:
@@ -122,22 +125,29 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .s-card b {{ font-size:18px; letter-spacing:-.5px; color:var(--ink); }}
 .s-card em {{ display:block; font-style:normal; color:var(--muted); font-size:11px; margin-top:2px; }}
 .s-card.main b {{ color:var(--blue); }}
-.s-card.ref {{ background:#fafbfd; border-style:dashed; }}
+.s-card.ref {{ background:#f6f8fb; border:1px dashed #c9d3e0; }}
 .tr {{ background:white; border:1px solid var(--line); border-radius:14px; padding:12px 14px 8px; margin:10px 0 4px; }}
 .tr > small {{ color:var(--muted); font-size:12px; }}
 .tr > small b.up {{ color:#0868ec; }}
-.tr > small b.down {{ color:#d9731a; }}
+.tr > small b.down {{ color:#E0517A; }}
 .tr-bars {{ display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:10px; height:150px; align-items:end; margin-top:10px; }}
 .tr-bar {{ display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; }}
 .tr-bar b {{ font-size:11px; color:#24456c; white-space:nowrap; margin-bottom:3px; }}
 .tr-bar span {{ display:block; width:70%; max-width:46px; background:linear-gradient(180deg,#5b9bff,#0868ec);
                 border-radius:6px 6px 0 0; min-height:4px; transform-origin:bottom; }}
-.tr-bar:last-child span {{ background:linear-gradient(180deg,#0868ec,#0550c0); }}
+
 .tr-bar em {{ font-style:normal; font-size:11px; color:#3a5170; margin-top:4px; }}
 .tr-bar i {{ font-style:normal; font-size:10px; color:#8193a8; }}
-.tr.ref {{ background:#fafbfd; border-style:dashed; }}
-.tr.ref .tr-bar span {{ background:linear-gradient(180deg,#9cc3ff,#5b9bff); }}
-.tr.ref .tr-bar:first-child span {{ background:linear-gradient(180deg,#0868ec,#0550c0); }}
+/* 색 규칙: 파랑 = 국민연금으로 추정한 값 · 주황 = 사업보고서 실제 공시 · 회청색 = 정부 통계로 만든 참고값(검증 안 됨) */
+:root {{ --teal:#8e9bb0; --teal-l:#c3ccd9; --teal-bg:#f6f8fb; --pink:#FF9EB5; --pink-t:#E0517A; }}
+.tr.ref {{ background:var(--teal-bg); border:1px dashed #c9d3e0; }}
+.tr.ref .tr-bar span {{ background:linear-gradient(180deg,var(--teal-l),var(--teal)); }}
+.tr.ref > small b.up {{ color:#56657c; }}
+.tr-bar:first-child b, .tr:not(.ref) .tr-bar:last-child b {{ font-size:12px; color:var(--ink); }}
+.s-key {{ display:inline-flex; align-items:center; gap:5px; font-size:11px; color:#62758d; margin-left:8px; }}
+.s-key i {{ display:inline-block; width:10px; height:10px; border-radius:3px; }}
+.s-key .k-blue {{ background:#0868ec; }}
+.s-key .k-teal {{ background:var(--teal); }}
 .tr-basis {{ font-size:11px !important; color:#8193a8 !important; margin:6px 0 0; }}
 .tr p:not(.tr-basis) {{ font-size:12px !important; color:#3a5170 !important; margin:4px 0 0; line-height:1.6; }}
 @media (prefers-reduced-motion:no-preference) {{ .tr-bar span {{ animation:s-grow-y .6s cubic-bezier(.2,.7,.2,1) both; }} }}
@@ -155,7 +165,7 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .s-links-top {{ margin:-2px 0 12px; gap:8px; }}
 .s-links-top small {{ font-size:12px; font-weight:650; color:#1766bf; }}
 .s-links-top a {{ font-size:13px; padding:8px 14px; border-color:#c4d9f5; box-shadow:0 2px 8px #447bb914; }}
-.s-card.ref b {{ color:#62758d; }}
+.s-card.ref b {{ color:#56657c; }}
 .s-cards3 {{ grid-template-columns:repeat(3,minmax(0,1fr)); }}
 .s-cards2 {{ grid-template-columns:repeat(2,minmax(0,1fr)); }}
 .s-basis {{ background:white; border:1px solid var(--line); border-radius:20px; padding:18px 22px; margin:4px 0 14px; }}
@@ -184,17 +194,17 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .rc-l {{ background:#8dbaf5; }}
 .rc-e {{ width:14px !important; height:14px !important; top:3px !important; margin-left:-7px; background:#0868ec;
          transform:rotate(45deg); border-radius:2px !important; box-shadow:0 0 0 2px white; }}
-.rc-d {{ width:4px; margin-left:-2px; top:-4px !important; height:28px !important; background:#f08c2e; border-radius:2px !important; }}
+.rc-d {{ width:4px; margin-left:-2px; top:-4px !important; height:28px !important; background:var(--pink); border-radius:2px !important; }}
 .rc-val {{ font-size:12px; color:#62758d; font-variant-numeric:tabular-nums; display:flex; flex-direction:column; line-height:1.3; }}
 .rc-val .v-e {{ color:#0868ec; }}
-.rc-val .v-d {{ color:#d9731a; }}
+.rc-val .v-d {{ color:var(--pink-t); }}
 .rc-legend {{ display:flex; flex-wrap:wrap; gap:6px 18px; font-size:12px; color:#3a5170; margin:0 0 10px; }}
 .rc-legend span {{ display:inline-flex; align-items:center; gap:6px; }}
 .rc-legend i {{ display:inline-block; }}
 .rc-legend .rc-unit {{ margin-left:auto; color:#8193a8; }}
 .k-e {{ width:10px; height:10px; background:#0868ec; transform:rotate(45deg); border-radius:1px; }}
 .k-l {{ width:22px; height:10px; background:#8dbaf5; border-radius:4px; }}
-.k-d {{ width:4px; height:14px; background:#f08c2e; border-radius:2px; }}
+.k-d {{ width:4px; height:14px; background:var(--pink); border-radius:2px; }}
 /* 회사 하나: 눈금자 (그림 위에 말로 직접 표시) */
 .sr {{ background:white; border:1px solid var(--line); border-radius:16px; padding:18px 22px 14px; margin:10px 0 8px; }}
 .sr-head {{ font-size:17px !important; margin:0 0 4px; }}
@@ -211,8 +221,8 @@ header[data-testid="stHeader"] {{ background:transparent; }}
                  font-weight:700; padding:3px 9px; border-radius:99px; color:white; }}
 .sr-est {{ background:#0868ec; }}
 .sr-est span {{ background:#0868ec; }}
-.sr-dart {{ background:#e07a16; }}
-.sr-dart span {{ background:#e07a16; bottom:auto; top:34px; }}
+.sr-dart {{ background:var(--pink); }}
+.sr-dart span {{ background:#FFE3EA; color:var(--pink-t) !important; border:1px solid var(--pink); bottom:auto; top:34px; }}
 .sr-note {{ font-size:13px !important; color:#3a5170 !important; margin:30px 0 0; line-height:1.7; }}
 /* 여러 회사: 표 + 간트 차트 */
 .gt {{ background:white; border:1px solid var(--line); border-radius:16px; padding:14px 16px 6px; margin:10px 0 8px; overflow-x:auto; }}
@@ -221,7 +231,7 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .gt-legend .gt-unit {{ margin-left:auto; color:#8193a8; }}
 .k-gband {{ display:inline-block; width:22px; height:10px; background:#a9cbf7; border-radius:3px; }}
 .k-gest {{ display:inline-block; width:10px; height:10px; background:#0868ec; border-radius:50%; }}
-.k-gdart {{ display:inline-block; width:4px; height:14px; background:#e07a16; border-radius:2px; }}
+.k-gdart {{ display:inline-block; width:4px; height:14px; background:var(--pink); border-radius:2px; }}
 .gt table {{ width:100%; border-collapse:collapse; font-size:13px; }}
 .gt th {{ text-align:left; color:#62758d; font-weight:600; font-size:12px; padding:8px 8px; border:0; border-bottom:1px solid var(--line); }}
 .gt td {{ padding:9px 8px; border:0; border-top:1px solid #f0f4f9; vertical-align:middle; }}
@@ -236,7 +246,7 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .ans-note {{ display:block; margin-top:8px; font-size:12.5px; color:#62758d; line-height:1.6; }}
 .gt-num {{ text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }}
 .gt-num .v-e {{ color:#0868ec; }}
-.gt-num .v-d {{ color:#d9731a; }}
+.gt-num .v-d {{ color:var(--pink-t); }}
 .gt-none {{ color:#b6c2d1; }}
 .gt th.gt-chart, .gt td.gt-chart {{ width:38%; min-width:220px; padding-left:18px; padding-right:22px; }}
 .gt-ticks {{ position:relative; height:16px; }}
@@ -244,7 +254,7 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .gt-track {{ position:relative; height:18px; background:repeating-linear-gradient(90deg,#f3f6fa 0 1px,transparent 1px 20%); }}
 .gt-band {{ position:absolute; top:3px; height:12px; background:#a9cbf7; border-radius:6px; }}
 .gt-est {{ position:absolute; top:2px; width:14px; height:14px; margin-left:-7px; background:#0868ec; border:2px solid white; border-radius:50%; }}
-.gt-dart {{ position:absolute; top:-2px; width:4px; height:22px; margin-left:-2px; background:#e07a16; border-radius:2px; }}
+.gt-dart {{ position:absolute; top:-2px; width:4px; height:22px; margin-left:-2px; background:var(--pink); border-radius:2px; }}
 .gt-small td {{ background:#f7f9fc; }}
 .gt-small .gt-rank {{ font-size:11px; font-weight:700; color:#4572a9; }}
 .gt-track-small .gt-band {{ background:#d5dce6; }}
@@ -291,7 +301,7 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .k-bar, .k-band, .k-dbar {{ display:inline-block; width:22px; height:10px; border-radius:3px; }}
 .k-bar {{ background:#0868ec; }}
 .k-band {{ background:#0868ec33; border:1.5px dashed #0868ec; }}
-.k-dbar {{ background:#f08c2e; }}
+.k-dbar {{ background:var(--pink); }}
 .cb-line {{ position:relative; height:24px; }}
 .cb-line-d {{ height:20px; margin-top:4px; }}
 .cb-bar {{ position:absolute; left:0; top:3px; height:18px; border-radius:6px; min-width:4px; }}
@@ -301,9 +311,9 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .cb-label b {{ font-weight:700; }}
 .cb-label em {{ display:block; font-style:normal; font-size:11px; color:#5a7aa3; }}
 .cb-line .v-e {{ color:#0868ec; }}
-.cb-line .v-d {{ color:#d9731a; }}
+.cb-line .v-d {{ color:var(--pink-t); }}
 .cb-est {{ background:#0868ec; }}
-.cb-dart {{ background:#f08c2e; }}
+.cb-dart {{ background:var(--pink); }}
 @media (max-width:640px) {{
   .cb-row {{ grid-template-columns:1fr; gap:6px; }}
   /* 좁은 화면: 금액 글자를 막대 오른쪽이 아니라 아래에 */
@@ -352,6 +362,35 @@ header[data-testid="stHeader"] {{ background:transparent; }}
   .st-key-hero input, .st-key-askbox input {{ font-size:16px; }}
   [class*="st-key-sg"] button {{ min-height:76px; }}
 }}
+/* 그래프 다듬기: 가는 막대·윗부분만 둥글게·부드러운 그라데이션·옅은 가로 눈금·조용한 숫자 */
+.tr, .hc, .gt, .sr {{ border-radius:18px; border-color:#e6edf6; box-shadow:0 6px 24px #6a8bb30d; }}
+.tr {{ padding:16px 18px 12px; }}
+.tr-bars {{ height:160px; gap:14px; padding:0 4px; border-bottom:1px solid #e3eaf3;
+           background-image:repeating-linear-gradient(0deg, transparent 0 calc(25% - 1px), #eef2f8 calc(25% - 1px) 25%); }}
+.tr-bar span {{ width:42%; max-width:30px; border-radius:10px 10px 4px 4px;
+               background:linear-gradient(180deg,#9cc2ff,#3d85f5); transition:filter .2s, transform .2s; }}
+.tr-bar:hover span {{ filter:brightness(1.06) saturate(1.1); transform:scaleY(1.02); }}
+.tr-bar b {{ font-size:11px; font-weight:600; color:#6b7b90; margin-bottom:5px; }}
+.tr-bar em {{ font-size:11px; color:#4a5d78; margin-top:6px; }}
+.tr.ref .tr-bar span {{ background:linear-gradient(180deg,#d3dae4,#8e9bb0); }}
+.tr-bar:first-child b, .tr:not(.ref) .tr-bar:last-child b {{ color:var(--ink); font-size:12px; }}
+.hc-bars {{ gap:7px; border-bottom:1px solid #e3eaf3; }}
+.hc-bar {{ align-items:center; }}
+.hc-bar span {{ width:52%; max-width:22px; background:linear-gradient(180deg,#c6dafb,#8db7f5); border-radius:6px 6px 2px 2px; }}
+.hc-bar:hover span {{ background:linear-gradient(180deg,#9cc2ff,#3d85f5); }}
+.gt-track {{ height:20px; }}
+.gt-band {{ top:5px; height:10px; background:#d3e3fb; border-radius:99px; }}
+.gt-est {{ top:3px; width:14px; height:14px; background:#2f7cf6; border:3px solid white; box-shadow:0 0 0 1px #2f7cf6; }}
+.gt-dart {{ top:0; width:6px; height:20px; margin-left:-3px; border-radius:99px; box-shadow:0 0 0 2px white; }}
+.k-gband {{ background:#d3e3fb; border-radius:99px; }}
+.k-gest {{ background:#2f7cf6; }}
+.k-gdart {{ width:6px; border-radius:99px; }}
+.sr-track {{ height:12px; background:#eef2f8; border-radius:99px; }}
+.sr-band {{ height:12px; background:#d3e3fb; border-radius:99px; }}
+.sr-mark {{ width:4px; border-radius:99px; }}
+.sr-est {{ background:#2f7cf6; }}
+.sr-est span {{ background:#2f7cf6; box-shadow:0 4px 12px #2f7cf633; }}
+.s-card {{ border-radius:16px; border-color:#e6edf6; box-shadow:0 4px 16px #6a8bb30a; }}
 </style>""", unsafe_allow_html=True)
 
 
@@ -387,7 +426,7 @@ def secret(name):
 
 
 def nav():
-    st.markdown(f'<div class="s-nav"><div class="s-brand">회사 연봉 <span>AI</span></div>'
+    st.markdown(f'<div class="s-nav"><div class="s-brand"><img src="data:image/png;base64,{LOGO}" alt="">회사 연봉 <span>AI</span></div>'
                 f'<a href="{GITHUB}" target="_blank">프로젝트 살펴보기</a></div>', unsafe_allow_html=True)
 
 
@@ -799,7 +838,8 @@ def tenure_chart(tc):
         f'<b>{won(v)}</b><span style="height:{v / hi * 100:.0f}%"></span><em>{html.escape(lab.split(" (")[0])}</em>'
         f'<i>{x:.0%}</i></div>'
         for lab, v, x in zip(tc["buckets"], vals, tc["ratio_to_average"]))
-    head = (f'<small>연차별 참고 연봉 (신입 → 10년 이상) · 참고용 · 신입 약 <b class="up">{won(vals[0])} 원</b> · '
+    head = (f'<small>연차별 참고 연봉 (신입 → 10년 이상) <span class="s-key"><i class="k-teal"></i>회청색 = 정부 통계로 만든 참고값</span> · '
+            f'신입 약 <b class="up">{won(vals[0])} 원</b> · '
             f'{html.escape(tc["growth_text"])}</small>')
     dart = f'<p>📊 {html.escape(tc["dart_compare_text"])}</p>' if tc.get("dart_compare_text") else ""
     return (f'<div class="tr ref">{head}<div class="tr-bars">{bars}</div>'
@@ -822,8 +862,9 @@ def trend_chart(tr):
         for y, v, m in zip(tr["years"], vals, tr["members"]))
     g = tr.get("annual_growth_pct")
     # '한 사람이 연차가 쌓이며 오르는 연봉'으로 오해하지 않게, 그해 회사 전체 평균의 변화라고 이름에 적는다
-    head = (f'<small>회사 평균 연봉 변화 (연도별) · {tr["change_text"]}</small>'
-            if g is None else f'<small>회사 평균 연봉 변화 (연도별) · 연평균 <b class="{"up" if g >= 0 else "down"}">{g:+.1f}%</b> · '
+    key = '<span class="s-key"><i class="k-blue"></i>파랑 = 국민연금으로 추정한 값</span>'
+    head = (f'<small>회사 평균 연봉 변화 (연도별) {key} · {tr["change_text"]}</small>'
+            if g is None else f'<small>회사 평균 연봉 변화 (연도별) {key} · 연평균 <b class="{"up" if g >= 0 else "down"}">{g:+.1f}%</b> · '
                                 f'{html.escape(tr["change_text"].split(" (")[0])}</small>')
     notes = "".join(f"<p>💡 {html.escape(n)}</p>" for n in tr.get("notes", []))
     return (f'<div class="tr">{head}<div class="tr-bars">{bars}</div>'
@@ -919,12 +960,29 @@ def share_box(name):
         st.caption("오른쪽 위 버튼으로 복사해서 보내면, 받은 사람이 열자마자 이 회사 결과가 나와요. (비밀번호가 있으면 입장 후)")
 
 
+WHY_DIFF = """**추정 연봉과 실제 공시 연봉이 다른 이유**
+
+1. **보험료 상한** — 국민연금은 월 소득 659만 원(연 7,908만 원)까지만 보험료를 매겨요. 그 이상은 자료에 안 보여서 고연봉자가 많을수록 추정이 낮아요. (보정 모델로 끌어올리지만 다 메우지는 못해요)
+2. **잡히는 소득의 범위** — 국민연금에는 식대 같은 비과세 수당이 빠지고 성과급은 일부만 반영돼요. 사업보고서 평균 급여에는 성과급·상여금이 모두 들어가요.
+3. **시점** — 국민연금 기준 소득은 매년 7월에 전년도 소득으로 정해져요. 성과급을 언제 줬는지에 따라 어긋날 수 있어요.
+4. **세는 사람** — 사업보고서는 임원을 뺀 직원 평균이고, 국민연금은 그 사업장 가입자 전체(중간 입·퇴사자, 지점 포함)예요.
+
+👉 실제 공시 연봉이 있으면 **그 숫자가 더 정확해요.**"""
+
+
 def show_visuals(kind, rows, i=0):
     if not kind:
         return
     if kind == "single":
         r = rows[0]
-        st.markdown(salary_ruler(r) + single_cards(r), unsafe_allow_html=True)
+        st.markdown(salary_ruler(r), unsafe_allow_html=True)
+        if r.get("dart_actual_salary_manwon"):  # 상장사: 추정과 실제 공시가 왜 다른지 (한 줄은 늘 보이고, 자세한 건 눌러서)
+            c1, c2 = st.columns([5, 1.3], vertical_alignment="center")
+            c1.markdown('<p class="s-why">💡 추정과 실제 공시가 다른 가장 큰 이유: 국민연금은 월 659만 원(연 7,908만 원)까지만 '
+                        '소득을 잡아서, 고연봉·성과급이 많은 회사일수록 추정이 낮게 나와요.</p>', unsafe_allow_html=True)
+            with c2.popover("❓ 왜 다를까요?", use_container_width=True):
+                st.markdown(WHY_DIFF)
+        st.markdown(single_cards(r), unsafe_allow_html=True)
         my_year_box(r, i)
         similar_block(r)
         share_box(r["name"])
@@ -970,10 +1028,11 @@ st.markdown("""<style>
 .s-concl b { color:#0757c8; }
 .s-detail-h { font-size:12px !important; font-weight:700; color:#4572a9 !important; letter-spacing:.5px; margin:12px 0 2px !important; }
 .s-ai-note { font-size:12px !important; color:#8193a8 !important; margin:4px 0 8px !important; }
+.s-why { font-size:12.5px !important; color:#3a5170 !important; margin:0 !important; line-height:1.6; }
 .s-myyear { font-size:14px !important; margin:0 !important; line-height:1.6; }
-.s-myyear b { color:#0757c8; font-size:17px; }
+.s-myyear b { color:#56657c; font-size:17px; }
 .s-myyear span { font-size:11.5px; color:#8193a8; }
-[class*="st-key-myyear"] { background:white; border:1px dashed #c9d8ea; border-radius:14px; padding:8px 16px 4px; margin:8px 0; }
+[class*="st-key-myyear"] { background:#f6f8fb; border:1px dashed #c9d3e0; border-radius:14px; padding:8px 16px 4px; margin:8px 0; }
 .s-cand { font-size:13px !important; margin:0 !important; }
 .s-cand small { color:#8193a8; }
 /* 검색창 예시가 몇 초마다 위로 돌아가며 바뀐다 (칸을 누르면 사라진다) */
