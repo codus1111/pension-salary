@@ -744,7 +744,7 @@ def tenure_chart(tc):
     vals = tc["salary_manwon"]
     hi = max(vals)
     bars = "".join(
-        f'<div class="tr-bar" title="{html.escape(lab)} · 약 {won(v)} 원 · 업종 평균의 {x:.0%}">'
+        f'<div class="tr-bar" title="{html.escape(lab)} · 약 {won(v)} 원 · 회사 평균의 {x:.0%}">'
         f'<b>{won(v)}</b><span style="height:{v / hi * 100:.0f}%"></span><em>{html.escape(lab.split(" (")[0])}</em>'
         f'<i>{x:.0%}</i></div>'
         for lab, v, x in zip(tc["buckets"], vals, tc["ratio_to_average"]))
@@ -752,7 +752,8 @@ def tenure_chart(tc):
             f'{html.escape(tc["growth_text"])}</small>')
     dart = f'<p>📊 {html.escape(tc["dart_compare_text"])}</p>' if tc.get("dart_compare_text") else ""
     return (f'<div class="tr ref">{head}<div class="tr-bars">{bars}</div>'
-            f'<p class="tr-basis">막대 아래 %는 업종 평균 대비 · 기준 {html.escape(tc["base_text"])} · '
+            f'<p class="tr-basis">막대 아래 %는 회사 평균 대비 · 기준 {html.escape(tc["base_text"])} · '
+            f'{html.escape(tc.get("tenure_text", ""))} · '
             f'정부 통계 업종: {html.escape(tc["industry_basis"])} · {html.escape(tc["basis"])}</p>'
             f'<p>⚠️ {html.escape(tc["meaning"])}</p>{dart}</div>')
 

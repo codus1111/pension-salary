@@ -192,7 +192,56 @@ def _dart_tenure_slopes():
 DART_TENURE = _dart_tenure_slopes() if TENURE else {}
 
 
+TENURE_MID = [0.5, 2, 4, 7.5, 15]  # 근속 구간 가운데 값 (10년 이상은 15년으로 본다)
+
+
+def _curve_at(w, t):
+    """업종 곡선에서 근속 t년의 임금 (구간 가운데 값 사이를 로그로 잇는다. 0.5~15년 밖은 끝값)."""
+    t = min(max(t, TENURE_MID[0]), TENURE_MID[-1])
+    lw = np.log(w[1:])
+    return float(np.exp(np.interp(t, TENURE_MID, lw)))
+
+
+def _industry_tenure(w):
+    """업종 평균 임금(전근속)이 곡선에서 몇 년 차에 해당하는지 (= 업종의 실질 평균 근속)."""
+    return float(np.interp(np.log(w[0]), np.log(w[1:]), TENURE_MID))
+
+
+def _size_tenure(members):
+    bands = TENURE.get("size_tenure", {}).get("bands", [])
+    val = TENURE.get("size_tenure", {}).get("all", 7.1)
+    for lo, t in bands:
+        if members >= lo:
+            val = t
+    return val
+
+
+def _tenure_cap(key):
+    """직원 수 추이로 본 평균 근속의 최대치. k년 전 직원 수 ÷ 지금 직원 수보다 많은 사람이 k년 넘게 다녔을 수는 없다.
+
+    토스처럼 6년 새 직원이 5배가 된 회사는 대부분 최근 입사자라, 규모 평균(10년 넘게)을 쓰면 신입 연봉이 크게 나온다.
+    """
+    if TREND.empty or key not in TREND.index:
+        return None
+    t = TREND.loc[key]
+    m = [t[f"members_{y}"] for y in TREND_YEARS]
+    if any(pd.isna(v) or v <= 0 for v in m):
+        return None
+    now = m[-1]
+    shares = [min(1.0, v / now) for v in reversed(m[:-1])]   # 1년 전, 2년 전, …
+    if shares[-1] > 0.6:  # 자료 첫해보다 직원이 1.7배 넘게 늘지 않았으면 오래 다닌 사람이 많을 수 있어 제한하지 않는다
+        return None
+    return 0.5 + sum(shares) + shares[-1] * 3                 # 자료보다 더 오래된 근속은 최대 3년 더로 본다
+
+
 def _tenure_curve(r):
+    """연차별 참고 연봉. 회사 평균이 업종 곡선의 '평균 근속 몇 년 차'에 해당한다고 보고, 그 값으로 나눠 구간별로 늘리거나 줄인다.
+
+    처음에는 업종 평균 대비 비율을 그대로 곱했는데, 근속이 긴 대기업(삼성전자 평균 13.7년)은 회사 평균이 이미 고참 쪽이라
+    신입이 크게 나왔다(카카오 신입 7,679만 원). 그래서 회사 평균의 위치를 근속으로 맞춘다:
+    상장사는 사업보고서의 평균 근속연수, 나머지는 같은 직원 규모의 평균 근속(정부 통계: 5~9인 5.9년 ~ 500인 이상 10.8년)을
+    업종 평균 근속에 비례해 쓴다.
+    """
     # 상장사는 사업보고서의 실제 평균 급여, 아니면 추정 연봉을 기준으로 한다
     actual = not pd.isna(r["dart_avg_salary"]) and r["dart_avg_salary"] > 0
     base = r["dart_avg_salary"] if actual else r["est_corrected"]
@@ -200,13 +249,27 @@ def _tenure_curve(r):
         return None
     industry = TENURE["group_to_industry"].get(r["group"], "전체")
     w = TENURE["wage_thousand_won"][industry]
-    ratios = [v / w[0] for v in w[1:]]
+    t_ind = _industry_tenure(w)
+    if not pd.isna(r["tenure_years"]) and r["tenure_years"] > 0:
+        t_co = float(r["tenure_years"])
+        tenure_text = f"이 회사 평균 근속 {t_co:.1f}년 (사업보고서)"
+    else:
+        size_t = _size_tenure(int(r["members"]))
+        t_co = t_ind * size_t / TENURE["size_tenure"]["all"] if "size_tenure" in TENURE else t_ind
+        tenure_text = f"평균 근속 약 {t_co:.1f}년으로 가정 (같은 직원 규모 평균 {size_t}년, 정부 통계)"
+        cap = _tenure_cap(r["company_key"])
+        if cap is not None and cap < t_co:
+            t_co = cap
+            tenure_text = f"평균 근속 약 {t_co:.1f}년으로 가정 (최근 몇 년 새 직원이 크게 늘어, 직원 수 추이로 본 최대치)"
+    anchor = _curve_at(w, t_co)
+    ratios = [v / anchor for v in w[1:]]
     first, last = w[1], w[5]
     dart = DART_TENURE.get(r["group"])
     out = {"industry_basis": industry.split(".")[-1],
            "buckets": TENURE_LABELS,
            "ratio_to_average": [round(x, 2) for x in ratios],
            "base_text": ("공시 평균 급여 " if actual else "추정 평균 연봉 ") + _won_text(base),
+           "tenure_text": tenure_text,
            "salary_manwon": [_manwon(base * x) for x in ratios],
            "salary_text": [_won_text(base * x) for x in ratios],
            "growth_text": f"같은 업종에서 10년 이상 근속자의 임금은 1년 미만의 약 {last / first:.1f}배",
@@ -214,13 +277,16 @@ def _tenure_curve(r):
                                  f"상장사 {dart[1]:,}곳 비교: 평균 근속이 1년 긴 회사는 평균 급여가 "
                                  + ("거의 같다 " if abs(dart[0]) < 0.5 else f"{dart[0]:+.1f}% ")
                                  + "(회사끼리 비교라 한 사람의 상승률보다 작게 나온다)"),
-           "basis": ("고용노동부 고용형태별노동실태조사 2025(상용 5인 이상)의 같은 업종 근속 구간별 임금 ÷ 업종 평균을 "
-                     "이 회사 평균 연봉(상장사는 공시값, 아니면 추정값)에 곱한 참고값"),
-           "meaning": ("이 회사의 실제 연차별 연봉이 아니라, '이 회사가 업종 평균과 같은 연차 구조라면'의 참고값이다. "
-                       "검증하지 않았고, 회사마다 호봉 체계·성과급이 달라 크게 다를 수 있다")}
-    if r["cap_ratio"] >= 0.9:
+           "basis": ("고용노동부 고용형태별노동실태조사 2025(상용 5인 이상)의 같은 업종 근속 구간별 임금 곡선에서, "
+                     "회사 평균 연봉(상장사는 공시값, 아니면 추정값)을 회사 평균 근속 위치에 맞춰 구간별로 늘리거나 줄인 참고값"),
+           "meaning": ("이 회사의 실제 연차별 연봉이 아니라, '업종의 연차별 임금 차이를 이 회사에 적용하면'의 참고값이다. "
+                       "검증하지 않았고, 회사마다 호봉 체계·성과급이 달라 크게 다를 수 있다. 특히 대기업은 성과급·주식 보상이 "
+                       "고참에게 몰려 있어 신입 값이 실제보다 높게 나오기 쉽다")}
+    if r["cap_ratio"] >= 0.9 and not actual:
         out["meaning"] += ". 평균 소득이 보험료 상한에 가까워 회사 평균 추정 자체가 낮게 나왔을 수 있다"
     return out
+
+
 YEAR_EXIT_MEDIAN = ({} if TURNOVER.empty else
                     TURNOVER[TURNOVER["avg_members"] >= 30].join(DATA.set_index("company_key")["group"])
                     .groupby("group")["annual_exit_rate"].median().to_dict())
