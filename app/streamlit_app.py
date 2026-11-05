@@ -152,6 +152,9 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .s-links a {{ font-size:12px; color:#24456c !important; text-decoration:none; background:white; border:1px solid #d9e5f4;
               border-radius:99px; padding:5px 11px; white-space:nowrap; }}
 .s-links a:hover {{ border-color:#0868ec; color:#0868ec !important; }}
+.s-links-top {{ margin:-2px 0 12px; gap:8px; }}
+.s-links-top small {{ font-size:12px; font-weight:650; color:#1766bf; }}
+.s-links-top a {{ font-size:13px; padding:8px 14px; border-color:#c4d9f5; box-shadow:0 2px 8px #447bb914; }}
 .s-card.ref b {{ color:#62758d; }}
 .s-cards3 {{ grid-template-columns:repeat(3,minmax(0,1fr)); }}
 .s-cards2 {{ grid-template-columns:repeat(2,minmax(0,1fr)); }}
@@ -730,7 +733,7 @@ def links_html(name, company_key=None):
         ("💼 잡코리아 채용공고", f"https://www.jobkorea.co.kr/Search/?stext={q}"),
         ("⭐ 잡플래닛 리뷰", f"https://www.jobplanet.co.kr/search?query={q}"),
     ]
-    return ('<div class="s-links"><small>더 알아보기</small>' + "".join(
+    return ('<div class="s-links"><small>🔗 바로 가기</small>' + "".join(
         f'<a href="{html.escape(u)}" target="_blank" rel="noopener noreferrer">{t}</a>' for t, u in items) + "</div>")
 
 
@@ -784,7 +787,7 @@ def single_cards(r):
         out += trend_chart(r["salary_trend"])
     if year and year.get("monthly_members"):
         out += headcount_chart(year["monthly_members"])
-    return out + links_html(r["name"], r.get("company_key"))
+    return out  # 바로 가기 버튼(홈페이지·채용공고·리뷰)은 맨 아래에 묻혀 찾기 어려워서 결론 바로 밑으로 옮겼다 (render_result)
 
 
 def tenure_chart(tc):
@@ -1249,6 +1252,10 @@ def render_result(m, user, i):
     concl = conclusion(m)
     if concl:
         st.markdown(f'<p class="s-concl">{concl}</p>', unsafe_allow_html=True)
+    if m.get("kind") == "single" and m.get("rows"):  # 다른 사이트로 가는 버튼은 결론 바로 밑에 (눈에 잘 띄게)
+        r0 = m["rows"][0]
+        st.markdown(links_html(r0["name"], r0.get("company_key")).replace('class="s-links"', 'class="s-links s-links-top"'),
+                    unsafe_allow_html=True)
     mode = m.get("mode", "ai")
     if mode == "data" and not m.get("rows"):
         if m.get("guess"):
