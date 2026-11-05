@@ -9,8 +9,9 @@
 -->
 <style>
   * { box-sizing:border-box; }
-  html, body { margin:0; padding:0; background:transparent; overflow:hidden;
+  html, body { margin:0; padding:0; background:transparent; overflow:hidden; height:auto;
                font-family:"Source Sans Pro","Apple SD Gothic Neo","Malgun Gothic",sans-serif; color:#192c49; }
+  #wrap { padding:2px 0; }
   .box { display:flex; align-items:center; gap:6px; background:white; border:1px solid #c4d9f5; border-radius:99px;
          box-shadow:0 8px 28px #447bb91c; padding:6px 6px 6px 18px; max-width:760px; position:relative; }
   .box:focus-within { border-color:#0868ec; }
@@ -42,15 +43,22 @@
 </style>
 </head>
 <body>
+<div id="wrap">
 <div class="box">
   <span class="roll" id="roll">🔍  토스</span>
   <input id="q" type="text" autocomplete="off" aria-label="검색" placeholder="">
   <button class="go" id="go" type="button">검색</button>
 </div>
 <div class="sug hide" id="sug"></div>
+</div>
 <script>
   const send = (type, extra) => window.parent.postMessage(Object.assign({isStreamlitMessage:true, type}, extra), "*");
-  const setHeight = () => send("streamlit:setFrameHeight", {height: document.documentElement.scrollHeight});
+  // 높이는 내용(검색칸 + 목록) 기준으로 잰다. 창(iframe) 높이로 재면 목록이 닫혀도 줄어들지 않아 아래에 빈칸이 남는다
+  let lastH = 0;
+  const setHeight = () => {
+    const h = Math.ceil(document.getElementById("wrap").getBoundingClientRect().height) + 4;
+    if (h !== lastH) { lastH = h; send("streamlit:setFrameHeight", {height: h}); }
+  };
   const submit = (text) => {
     text = (text || "").trim();
     if (!text) return;
