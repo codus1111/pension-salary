@@ -999,31 +999,42 @@ if not st.session_state.get("qp_done") and st.query_params.get("q"):
     search_q = st.query_params.get("q")
     st.session_state["qp_done"] = True
 
+import streamlit.components.v1 as components  # noqa: E402
+
+searchbox = components.declare_component("searchbox", path=str(ROOT / "app" / "components" / "searchbox"))
+EXAMPLES = ["토스", "네이버랑 카카오 비교해줘", "삼성전자 신입 연봉", "스타벅스", "현대자동차 5년 차 연봉",
+            "증권업계 연봉 높은 회사", "배민 1년 퇴사율"]
+
+
 @st.cache_data(max_entries=1)
 def search_options(version):
-    """예상 검색어 후보: 브랜드명(토스·배민 …) + 직원 300명 이상 회사 이름(괄호·주식회사 뺀 것), 큰 회사 먼저."""
-    big = DATA[DATA["members"] >= 300].sort_values("members", ascending=False)["sample_nm"]
-    names = list(agent.tools.BRANDS) + [search_name(n) for n in big]
-    return list(dict.fromkeys(n for n in names if n))
-
-
-def _picked():
-    v = st.session_state.get("sbox")
-    if v and str(v).strip():
-        st.session_state["pending_search"] = str(v).strip()
-    st.session_state["sbox"] = None  # 검색칸은 다시 비운다
+    """검색칸 아래 목록 후보: [보이는 이름, 업종·지역·직원 수, 검색할 이름]. 브랜드명(토스 → 비바리퍼블리카) 먼저, 그다음 직원 300명 이상 회사 큰 순."""
+    def info(r):
+        region = r["sido"] if isinstance(r["sido"], str) else "-"
+        return f"{r['group']} · {region} · {int(r['members']):,}명"
+    out, seen = [], set()
+    for b in agent.tools.BRANDS:
+        hit = agent.tools.search_company(b, limit=1)
+        if hit:
+            r = DATA[DATA["company_key"] == hit[0]["company_key"]].iloc[0]
+            out.append([b, f"{search_name(r['sample_nm'])} · " + info(r), b])
+    big = DATA[DATA["members"] >= 300].sort_values("members", ascending=False)
+    for _, r in big.iterrows():
+        n = search_name(r["sample_nm"])
+        if n and n not in seen:
+            seen.add(n)
+            out.append([n, info(r), n])
+    return out
 
 
 with st.container(key="hero"):
     hero_copy()
-    # 예상 검색어: 글자를 치는 동안 아래에 후보가 뜬다 ('토' → 토스, 토스뱅크 …). 목록에 없는 말(질문)도 그대로 검색된다
-    with st.container(key="searchbox"):
-        c1, c2 = st.columns([5, 1], vertical_alignment="center")
-        c1.selectbox("검색", search_options(_version), index=None, key="sbox", placeholder="회사 이름 또는 궁금한 내용",
-                     accept_new_options=True, on_change=_picked, label_visibility="collapsed")
-        c2.button("검색", key="sbtn", use_container_width=True, type="primary",
-                  help="후보를 고르거나, 다 쓰고 Enter를 누르면 바로 찾아요")
-    # 조건 필터도 같은 검색창 아래에 (업종·지역·규모·연봉·채용)
+    # 검색칸: 글자를 치는 동안 칸 아래에 이름이 들어간 회사가 업종·지역·직원 수와 함께 주르륵 뜬다 ('토' → 토스, 토스뱅크 …).
+    # Streamlit 기본 입력칸은 치는 도중에 반응하지 않아서 HTML·JS만으로 만든 컴포넌트를 쓴다 (app/components/searchbox)
+    got = searchbox(options=search_options(_version), examples=EXAMPLES, key="sbox", default=None)
+    if got and got.get("t") != st.session_state.get("sbox_t"):
+        st.session_state["sbox_t"] = got["t"]
+        search_q = got["q"]
     # 접었다 펴는 칸이 아니라 늘 펼쳐 둔다 (누르지 않아도 조건을 바로 고를 수 있게)
     with st.container(key="filterbox"):
         st.markdown('<p class="s-filter-h">🎛️ 조건으로 찾기 · 업종 · 지역 · 규모 · 연봉 · 요즘 채용 많은 곳</p>',
