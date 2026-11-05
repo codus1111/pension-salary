@@ -194,7 +194,9 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .k-d {{ width:4px; height:14px; background:#f08c2e; border-radius:2px; }}
 /* 회사 하나: 눈금자 (그림 위에 말로 직접 표시) */
 .sr {{ background:white; border:1px solid var(--line); border-radius:16px; padding:18px 22px 14px; margin:10px 0 8px; }}
-.sr-head {{ font-size:17px !important; margin:0 0 54px; }}
+.sr-head {{ font-size:17px !important; margin:0 0 4px; }}
+.sr-help {{ font-size:12.5px !important; color:#62758d !important; margin:0 0 50px; line-height:1.6; }}
+.sr-help b {{ color:#24456c; font-weight:650; }}
 .sr-head b {{ color:var(--blue); }}
 .sr-track {{ position:relative; height:16px; background:#edf2f8; border-radius:8px; margin:0 6% 40px; }}
 .sr-band {{ position:absolute; top:0; height:16px; background:#a9cbf7; border-radius:8px; }}
@@ -544,6 +546,8 @@ def salary_ruler(r):
     else:
         note = f"📌 실제 공시 연봉({won(dart)} 원)이 범위보다 낮아요. 이런 회사는 실제 공시 숫자를 믿으세요."
     return (f'<div class="sr"><p class="sr-head">평균 연봉은 <b>{won(c)} ~ {won(d)} 원</b> 사이일 가능성이 커요</p>'
+            '<p class="sr-help"><b>추정 연봉</b> = 국민연금 보험료로 거꾸로 계산한 이 회사 전체 직원의 평균 연봉 · '
+            '<b>가능성 높은 범위</b> = 비슷한 회사 2곳 중 1곳은 실제 평균 연봉이 이 안에 있었어요</p>'
             f'<div class="sr-track"><div class="sr-band" style="left:{pos(c):.1f}%;width:{pos(d) - pos(c):.1f}%">'
             f'<em class="sr-lo">{won(c)}</em><em class="sr-hi">{won(d)}</em></div>{marks}</div>'
             f'<p class="sr-note">{note}</p></div>')
@@ -860,7 +864,10 @@ def conclusion(m):
         r = rows[0]
         c, d = r.get("likely_range_manwon") or [None, None]
         conf = r.get("confidence") or {}
-        parts = [f"📌 <b>{html.escape(r['name'])}</b> 평균 연봉 <b>약 {won(r['estimated_salary_manwon'])} 원</b>"]
+        brand = m.get("brand")
+        who = (f"<b>{html.escape(brand)}</b>의 법인인 <b>{html.escape(r['name'])}</b>" if brand
+               else f"<b>{html.escape(r['name'])}</b>")
+        parts = [f"📌 {who} 평균 연봉 <b>약 {won(r['estimated_salary_manwon'])} 원</b>"]
         if r.get("dart_actual_salary_manwon"):
             parts.append(f"실제 공시 <b>{won(r['dart_actual_salary_manwon'])} 원</b>")
         elif c:
@@ -1182,11 +1189,16 @@ def data_message(q, key=None):
     if key:
         r = agent.tools.get_salary_estimate(key)
         others = [h for h in hits if h["company_key"] != key][:5]
-        st.query_params["q"] = search_name(r["name"])  # 주소창 주소가 곧 공유 주소가 되게
         # '토수'처럼 브랜드명(토스)과 한 글자 다르면, 같은 이름의 회사(토수종합건설)를 보여주면서도 '혹시 토스?'를 묻는다
         brand = agent.tools.suggest_brand(q) if hasattr(agent.tools, "suggest_brand") else None
+        # 토스·라라스윗처럼 브랜드명으로 찾으면 결론에 '토스의 법인인 (주)비바리퍼블리카'로 적는다
+        legal = agent.tools.to_legal(q)
+        bname = next((b for b in [*agent.tools.BRANDS, *agent.tools.UNVERIFIED]
+                      if agent.tools._key(b) == agent.tools._key(q)), q) if legal else None
+        st.query_params["q"] = bname or search_name(r["name"])  # 주소창 주소가 곧 공유 주소가 되게 (브랜드명은 그대로)
         return {"role": "assistant", "mode": "data", "kind": "single", "rows": [r], "candidates": others, "query": q,
-                "note": agent.tools.brand_note(q) if hasattr(agent.tools, "brand_note") else None, "guess": brand}
+                "note": agent.tools.brand_note(q) if hasattr(agent.tools, "brand_note") else None, "guess": brand,
+                "brand": bname}
     guess = agent.tools.suggest_name(q) if hasattr(agent.tools, "suggest_name") else None
     if not hits:
         print(f"[검색 0건] {q}", flush=True)  # 배포 로그에 쌓아 브랜드명 사전 후보로 쓴다
