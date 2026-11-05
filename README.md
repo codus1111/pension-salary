@@ -241,6 +241,7 @@ python src/compare_monthly.py 2026           # → reports/monthly_aligned.md
 | 지방 구직자 | "우리 지역 회사는?" | 지역 필터 (**그 지역 사업장 기준**), "현대제철 충남"처럼 회사+지역 질문 |
 | 취준생 | "신입이면 얼마, 몇 년 차면 얼마?" | **연차별 참고 연봉** (1년 미만 → 10년 이상, 업종별 정부 통계 곡선 × 회사 평균, 점선 카드 = 참고용) |
 | 공통 | "더 알아보려면?" | 공식 홈페이지(상장사 DART 공시 주소), 사람인·잡코리아 채용공고, 잡플래닛 리뷰 버튼 (블라인드는 재직자만 볼 수 있어 뺐다) |
+| 만든 사람 | "실제로 도움이 되나?" | 답마다 **👍👎 "이 추정 도움이 됐나요?"**, 👎는 아쉬운 점 한 줄(선택). 구글 시트로 모은다 (`tools/feedback_sheet.gs`에 연결 방법) |
 | 공통 | "이 숫자 믿어도 돼?" | **정확도 신호등** 🟢🟡🔴, 상장사는 실제 공시 연봉을 같이 표시, 데이터 기준 날짜 |
 
 **AI 없이 바로 쓰는 "회사 직접 찾기"** (무료·즉시)
@@ -271,7 +272,7 @@ python src/compare_monthly.py 2026           # → reports/monthly_aligned.md
 - 데이터: `src/make_app_data.py`(32MB), `src/make_region_data.py`(지역별 몫), `src/make_turnover_data.py`(12개월 퇴사율·직원 수 추이),
   `src/make_trend_data.py`(연도별 평균), `src/make_link_data.py`(홈페이지), `data/app/tenure_wage_2025.json`(정부 통계 연차 임금)으로
   만든 `data/app/`만 저장소에 올린다
-- 비밀 값: `GEMINI_API_KEY`(AI 모델), `APP_PASSWORD`(무료 한도를 아무나 쓰지 않게)는 코드가 아니라 배포 서비스의 Secrets 설정에 넣는다
+- 비밀 값: `GEMINI_API_KEY`(AI 모델), `APP_PASSWORD`(무료 한도를 아무나 쓰지 않게), `FEEDBACK_URL`·`FEEDBACK_TOKEN`(피드백 시트, 선택)은 코드가 아니라 배포 서비스의 Secrets 설정에 넣는다
 - 대화를 기억해 "그럼 카카오는?"처럼 이어서 물을 수 있고, 답마다 사용한 도구를 보여준다
 ```
 ~/venvs/pension/bin/streamlit run app/streamlit_app.py   # 로컬 실행 (WSL)

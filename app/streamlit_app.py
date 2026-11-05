@@ -142,6 +142,11 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .tr p:not(.tr-basis) {{ font-size:12px !important; color:#3a5170 !important; margin:4px 0 0; line-height:1.6; }}
 @media (prefers-reduced-motion:no-preference) {{ .tr-bar span {{ animation:s-grow-y .6s cubic-bezier(.2,.7,.2,1) both; }} }}
 @media (max-width:640px) {{ .tr-bars {{ gap:4px; height:130px; }} .tr-bar b {{ font-size:9px; }} }}
+[class*="st-key-fb"] {{ margin-top:8px; }}
+[class*="st-key-fb"] p.fb-q {{ font-size:12px !important; color:var(--muted) !important; margin:0; }}
+[class*="st-key-fb"] button {{ min-height:30px !important; padding:2px 12px !important; border-radius:999px !important;
+                               background:white !important; border:1px solid #d9e5f4 !important; }}
+[class*="st-key-fb"] button p {{ font-size:13px !important; }}
 .s-links {{ display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; margin:10px 0 4px; }}
 .s-links small {{ font-size:11px; color:var(--muted); margin-right:2px; }}
 .s-links a {{ font-size:12px; color:#24456c !important; text-decoration:none; background:white; border:1px solid #d9e5f4;
@@ -855,6 +860,70 @@ with st.container(key="hero"):
                 unsafe_allow_html=True)
 
 
+FEEDBACK_DIR = ROOT / "data/feedback"
+
+
+def save_feedback(rec):
+    """👍👎 한 건 저장. 항상 서버 로그와 로컬 파일에 남기고, FEEDBACK_URL(구글 시트 Apps Script)이 있으면 거기에도 보낸다.
+
+    Community Cloud는 다시 시작하면 파일이 지워져서, 오래 모으려면 구글 시트를 연결한다 (tools/feedback_sheet.gs).
+    로그인·이름 같은 개인 정보는 받지 않고 질문·답 앞부분·투표만 남긴다.
+    """
+    import json
+    import urllib.request
+    from datetime import datetime, timedelta, timezone
+    rec = {"time": datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%d %H:%M:%S"), **rec}
+    print("[피드백]", json.dumps(rec, ensure_ascii=False), flush=True)
+    try:
+        FEEDBACK_DIR.mkdir(parents=True, exist_ok=True)
+        with open(FEEDBACK_DIR / "feedback.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
+    url = secret("FEEDBACK_URL")
+    if not url:
+        return True
+    try:
+        body = json.dumps({**rec, "token": secret("FEEDBACK_TOKEN") or ""}, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=8) as res:
+            return res.status < 400
+    except Exception as e:  # 시트가 안 돼도 화면은 멈추지 않는다
+        print("[피드백 전송 실패]", e, flush=True)
+        return False
+
+
+def feedback_bar(i, user, answer):
+    """답 아래 '이 추정 도움이 됐나요? 👍 👎'. 👎는 아쉬운 점을 한 줄 더 받을 수 있다 (선택)."""
+    state = f"fb_done{i}"
+    with st.container(key=f"fb{i}"):
+        done = st.session_state.get(state)
+        if done == "up" or done == "sent":
+            st.markdown('<p class="fb-q">의견 고마워요! 더 나은 추정에 쓸게요 🙏</p>', unsafe_allow_html=True)
+            return
+        names = [r.get("name") for r in answer.get("rows", []) if isinstance(r, dict) and r.get("name")][:5]
+        rec = {"question": user[:300], "answer": (answer.get("content") or "")[:500],
+               "companies": ", ".join(names), "tools": " → ".join(answer.get("tools", []))}
+        if done == "down":
+            with st.form(f"fbform{i}", border=False):
+                why = st.text_input("아쉬운 점", placeholder="어떤 점이 아쉬웠나요? (선택) 예: 실제 연봉과 달라요, 회사를 잘못 찾았어요",
+                                    label_visibility="collapsed")
+                if st.form_submit_button("보내기"):
+                    save_feedback({**rec, "vote": "👎", "comment": why.strip()[:500]})
+                    st.session_state[state] = "sent"
+                    st.rerun()
+            return
+        c0, c1, c2, _ = st.columns([2.2, 0.8, 0.8, 4], vertical_alignment="center")
+        c0.markdown('<p class="fb-q">이 추정 도움이 됐나요?</p>', unsafe_allow_html=True)
+        if c1.button("👍", key=f"fbup{i}", help="도움이 됐어요"):
+            save_feedback({**rec, "vote": "👍", "comment": ""})
+            st.session_state[state] = "up"
+            st.rerun()
+        if c2.button("👎", key=f"fbdn{i}", help="아쉬워요"):
+            st.session_state[state] = "down"
+            st.rerun()
+
+
 def show_pair(user, answer, i):
     st.markdown(f'<div class="s-user"><b>나</b>{html.escape(user)}</div>', unsafe_allow_html=True)
     if answer:
@@ -864,6 +933,7 @@ def show_pair(user, answer, i):
             show_visuals(answer.get("kind"), answer.get("rows", []))
             if answer.get("tools"):
                 st.caption("사용한 도구: " + " → ".join(answer["tools"]))
+            feedback_bar(i, user, answer)
 
 
 with st.container(key="workspace"):
@@ -923,6 +993,7 @@ with st.container(key="workspace"):
                     st.caption("사용한 도구: " + " → ".join(tools))
                 st.session_state["messages"].append({"role": "assistant", "content": out["answer"], "tools": tools,
                                                      "kind": kind, "rows": rows, "unchecked": unchecked})
+                feedback_bar(len(st.session_state["messages"]) - 1, question, st.session_state["messages"][-1])
 
     if pairs and question:
         st.markdown('<p class="s-caption" style="margin:18px 0 6px">이전 대화</p>', unsafe_allow_html=True)

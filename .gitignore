@@ -5,3 +5,4 @@ data/processed/
 .mcp.json
 __pycache__/
 .venv/
+data/feedback/
