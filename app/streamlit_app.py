@@ -406,6 +406,7 @@ if password and not st.session_state.get("authed"):
     .st-key-hero .s-desc { font-size:clamp(15px, 1.2vw, 21px) !important; }
     .st-key-hero .s-eyebrow { font-size:clamp(11px, 0.8vw, 14px) !important; }
     .st-key-hero [data-testid="stForm"] { max-width:760px; }
+    .st-key-hero [data-testid="stAlert"] { max-width:760px; margin-top:8px; }
     .st-key-hero .s-points { display:flex; gap:10px; flex-wrap:wrap; margin:28px 0 0; }
     .st-key-hero .s-points span { background:#ffffffcc; border:1px solid #d8e7f7; border-radius:99px; padding:8px 14px;
                                   font-size:13px; color:#42658a; }
@@ -422,15 +423,17 @@ if password and not st.session_state.get("authed"):
             c1, c2 = st.columns([5, 1])
             typed = c1.text_input("비밀번호", type="password", placeholder="비밀번호를 입력하세요", label_visibility="collapsed")
             ok = c2.form_submit_button("입장", use_container_width=True)
+        # 틀렸다는 안내는 화면 맨 아래가 아니라 입력칸 바로 밑에 (+ 오른쪽 아래 알림)
+        if ok and typed:
+            if typed == password:
+                st.session_state["authed"] = True
+                st.rerun()
+            st.error("비밀번호가 맞지 않아요. 다시 입력해 주세요.", icon="🔒")
+            st.toast("비밀번호가 맞지 않아요", icon="🔒")
         st.markdown('<p class="s-note">무료 AI 사용량을 지키기 위해 비밀번호를 받고 있어요.</p>'
                     '<div class="s-points"><span>🏢 회사 51만 곳</span><span>✅ 상장사 2,392곳 공시로 검증</span>'
                     '<span>📉 2025년 12개월 퇴사율</span><span>🔎 토스·배민 같은 브랜드명 검색</span></div>',
                     unsafe_allow_html=True)
-    if ok and typed:
-        if typed == password:
-            st.session_state["authed"] = True
-            st.rerun()
-        st.error("비밀번호가 맞지 않아요.")
     st.stop()
 
 if secret("GEMINI_API_KEY"):
@@ -1002,9 +1005,11 @@ nav()
 question = st.session_state.pop("pending_q", None)   # AI에게 물을 질문
 search_q = st.session_state.pop("pending_search", None)  # 회사 바로 보기
 # ⑦ 공유 주소(?q=회사)로 들어오면 그 회사를 바로 보여준다 (한 번만)
+# 주소창에는 남기지 않는다: 새로고침하면 검색 기록 없이 처음 화면이 나오게
 if not st.session_state.get("qp_done") and st.query_params.get("q"):
     search_q = st.query_params.get("q")
     st.session_state["qp_done"] = True
+    st.query_params.clear()
 
 import streamlit.components.v1 as components  # noqa: E402
 
@@ -1195,7 +1200,6 @@ def data_message(q, key=None):
         legal = agent.tools.to_legal(q)
         bname = next((b for b in [*agent.tools.BRANDS, *agent.tools.UNVERIFIED]
                       if agent.tools._key(b) == agent.tools._key(q)), q) if legal else None
-        st.query_params["q"] = bname or search_name(r["name"])  # 주소창 주소가 곧 공유 주소가 되게 (브랜드명은 그대로)
         return {"role": "assistant", "mode": "data", "kind": "single", "rows": [r], "candidates": others, "query": q,
                 "note": agent.tools.brand_note(q) if hasattr(agent.tools, "brand_note") else None, "guess": brand,
                 "brand": bname}
