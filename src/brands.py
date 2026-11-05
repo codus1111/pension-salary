@@ -28,6 +28,16 @@ BRANDS = {
     # 엔터
     "sm": "에스엠엔터테인먼트", "jyp": "제이와이피엔터테인먼트", "yg": "와이지엔터테인먼트",
     "cj enm": "씨제이이엔엠", "카카오엔터": "카카오엔터테인먼트",
+    # 영어로 쳐도 찾게 (6글자 이상 영어는 약자로 읽지 않아서, 어떻게 읽는지 적어 둬야 찾는다)
+    "toss": "비바리퍼블리카", "viva republica": "비바리퍼블리카", "toss bank": "토스뱅크", "tossbank": "토스뱅크",
+    "coupang": "쿠팡", "baemin": "우아한형제들", "woowa": "우아한형제들", "daangn": "당근마켓", "karrot": "당근마켓",
+    "kurly": "컬리", "musinsa": "무신사", "yanolja": "야놀자", "kakaobank": "카카오뱅크", "kakao bank": "카카오뱅크",
+    "samsung": "삼성전자", "samsung electronics": "삼성전자", "samsung sds": "삼성에스디에스",
+    "hyundai": "현대자동차", "hyundai motor": "현대자동차", "kia": "기아", "posco": "포스코",
+    "nexon": "넥슨코리아", "ncsoft": "엔씨", "netmarble": "넷마블", "krafton": "크래프톤", "line": "라인플러스",
+    "celltrion": "셀트리온", "amorepacific": "아모레퍼시픽", "shinsegae": "신세계", "emart": "이마트",
+    "starbucks": "에스씨케이컴퍼니", "hybe": "하이브", "doosan": "두산",
+    "shinhan": "신한은행", "hana": "하나은행", "woori": "우리은행", "google": "구글코리아", "apple": "애플코리아",
 }
 
 

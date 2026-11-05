@@ -1124,14 +1124,16 @@ def search_options(version):
     big = DATA[DATA["members"] >= 30].sort_values("members", ascending=False).drop_duplicates("key_nm")
     by_key = big.set_index("key_nm")
     info = lambda r: f"{r['group']} · {r['sido'] if isinstance(r['sido'], str) else '-'} · {int(r['members']):,}명"  # noqa: E731
-    out, used = [], set()
+    out, used, used_en = [], set(), set()
     for b in agent.tools.BRANDS:
         k = agent.tools._key(agent.tools.to_legal(b) or b)
         if k in by_key.index:
             r = by_key.loc[k]
-            if r["company_key"] in used:  # 'ktng'처럼 같은 회사의 다른 이름은 한 번만
+            # 같은 회사의 다른 이름은 한 번만 ('ktng'). 다만 영어 이름(toss)은 한글 이름(토스)과 따로 둬야 영어로 쳐도 뜬다
+            seen_set = used_en if b.isascii() else used
+            if r["company_key"] in seen_set:
                 continue
-            used.add(r["company_key"])
+            seen_set.add(r["company_key"])
             shown = brand_label(b)
             out.append([shown, f"{search_name(r['sample_nm'])} · " + info(r), shown, r["company_key"], agent.tools._key(b)])
     top = big[big["members"] >= 300]

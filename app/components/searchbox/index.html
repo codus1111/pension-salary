@@ -87,7 +87,9 @@
       else if (n.includes(v) || (vh && k.includes(vh))) inside.push(o);
       if (starts.length >= 7) break;
     }
-    shown = starts.concat(inside).slice(0, 7);
+    // 이름이 검색어와 똑같은 회사를 맨 앞에 ('쿠팡'을 치면 쿠팡풀필먼트보다 쿠팡이 먼저)
+    const exact = OPTS.filter((o) => o[5] === v || (vh && o[6] === vh));
+    shown = [...new Set(exact.concat(starts, inside))].slice(0, 7);
     active = -1;
     if (!shown.length) { sug.classList.add("hide"); sug.innerHTML = ""; setHeight(); return; }
     sug.innerHTML = `<span class="lab">'${esc(q.value.trim())}' 들어간 회사 · 누르면 바로 볼 수 있어요</span>` + shown.map((o, i) => {
