@@ -930,6 +930,10 @@ st.markdown("""<style>
 .st-key-hero [data-testid="stForm"] { max-width:760px; margin:0 0 10px; }
 .st-key-hero [data-testid="stExpander"] { max-width:760px; }
 .st-key-hero [data-testid="stExpander"] details { background:#ffffffd9 !important; border-color:#d3e3f6 !important; }
+.st-key-filterbox { max-width:760px; background:#ffffffd9; border:1px solid #d3e3f6; border-radius:15px; padding:12px 18px 10px; }
+.s-filter-h { font-size:13px !important; font-weight:650; color:#24456c !important; margin:0 0 4px !important; }
+.st-key-filterbox [data-testid="stForm"] { max-width:none; border:0; border-radius:14px; box-shadow:none;
+               background:transparent; padding:4px 2px; }
 .st-key-hero [data-testid="stExpander"] [data-testid="stForm"] { max-width:none; border:0; border-radius:14px; box-shadow:none;
                background:transparent; padding:4px 2px; }
 .st-key-hero [data-testid="stExpander"] summary p { font-size:13px !important; font-weight:650; color:#24456c !important; }
@@ -976,7 +980,10 @@ with st.container(key="hero"):
         if c2.form_submit_button("검색", use_container_width=True) and typed.strip():
             search_q = typed.strip()
     # 조건 필터도 같은 검색창 아래에 (업종·지역·규모·연봉·채용)
-    with st.expander("🎛️ 조건으로 찾기 · 업종 · 지역 · 규모 · 연봉 · 요즘 채용 많은 곳"):
+    # 접었다 펴는 칸이 아니라 늘 펼쳐 둔다 (누르지 않아도 조건을 바로 고를 수 있게)
+    with st.container(key="filterbox"):
+        st.markdown('<p class="s-filter-h">🎛️ 조건으로 찾기 · 업종 · 지역 · 규모 · 연봉 · 요즘 채용 많은 곳</p>',
+                    unsafe_allow_html=True)
         with st.form("filters", border=False):
             f1, f2 = st.columns(2)
             groups = f1.multiselect("업종", filters.GROUP_NAMES, placeholder="전체 업종")
