@@ -135,6 +135,9 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .tr-bar:last-child span {{ background:linear-gradient(180deg,#0868ec,#0550c0); }}
 .tr-bar em {{ font-style:normal; font-size:11px; color:#3a5170; margin-top:4px; }}
 .tr-bar i {{ font-style:normal; font-size:10px; color:#8193a8; }}
+.tr.ref {{ background:#fafbfd; border-style:dashed; }}
+.tr.ref .tr-bar span {{ background:linear-gradient(180deg,#9cc3ff,#5b9bff); }}
+.tr.ref .tr-bar:first-child span {{ background:linear-gradient(180deg,#0868ec,#0550c0); }}
 .tr-basis {{ font-size:11px !important; color:#8193a8 !important; margin:6px 0 0; }}
 .tr p:not(.tr-basis) {{ font-size:12px !important; color:#3a5170 !important; margin:4px 0 0; line-height:1.6; }}
 @media (prefers-reduced-motion:no-preference) {{ .tr-bar span {{ animation:s-grow-y .6s cubic-bezier(.2,.7,.2,1) both; }} }}
@@ -722,11 +725,31 @@ def single_cards(r):
     out = '<div class="s-cards">' + "".join(cards) + "</div>"
     if second:
         out += f'<div class="s-cards s-cards{len(second)}">' + "".join(second) + "</div>"
+    if r.get("tenure_curve"):
+        out += tenure_chart(r["tenure_curve"])
     if r.get("salary_trend"):
         out += trend_chart(r["salary_trend"])
     if year and year.get("monthly_members"):
         out += headcount_chart(year["monthly_members"])
     return out + links_html(r["name"], r.get("company_key"))
+
+
+def tenure_chart(tc):
+    """연차별 참고 연봉 (신입 → 10년 이상). 정부 통계의 업종 근속 구간 비율 × 회사 평균. 검증 안 된 참고값이라 점선 카드."""
+    vals = tc["salary_manwon"]
+    hi = max(vals)
+    bars = "".join(
+        f'<div class="tr-bar" title="{html.escape(lab)} · 약 {won(v)} 원 · 업종 평균의 {x:.0%}">'
+        f'<b>{won(v)}</b><span style="height:{v / hi * 100:.0f}%"></span><em>{html.escape(lab.split(" (")[0])}</em>'
+        f'<i>{x:.0%}</i></div>'
+        for lab, v, x in zip(tc["buckets"], vals, tc["ratio_to_average"]))
+    head = (f'<small>연차별 참고 연봉 (신입 → 10년 이상) · 참고용 · 신입 약 <b class="up">{won(vals[0])} 원</b> · '
+            f'{html.escape(tc["growth_text"])}</small>')
+    dart = f'<p>📊 {html.escape(tc["dart_compare_text"])}</p>' if tc.get("dart_compare_text") else ""
+    return (f'<div class="tr ref">{head}<div class="tr-bars">{bars}</div>'
+            f'<p class="tr-basis">막대 아래 %는 업종 평균 대비 · 기준 {html.escape(tc["base_text"])} · '
+            f'정부 통계 업종: {html.escape(tc["industry_basis"])} · {html.escape(tc["basis"])}</p>'
+            f'<p>⚠️ {html.escape(tc["meaning"])}</p>{dart}</div>')
 
 
 def trend_chart(tr):

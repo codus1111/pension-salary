@@ -17,6 +17,7 @@ import os
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from mcp.server.mcpserver import MCPServer
 
@@ -51,6 +52,8 @@ INSTRUCTIONS = (
     "업종 안의 위치는 industry_position_text를 그대로 쓴다. "
     "연봉이 오르는지·추이를 물으면 salary_trend의 change_text와 notes(직원 수 변화, 상한 영향)를 함께 전한다. "
     "이것은 '회사 평균의 연도별 변화'이지 '한 사람의 연차별 연봉'이 아니라고 분명히 말한다. "
+    "신입·연차별 연봉을 물으면 tenure_curve의 salary_text(1년 미만·1~3년·3~5년·5~10년·10년 이상)와 growth_text를 전하고, "
+    "'정부 통계의 업종 연차 비율을 회사 평균에 곱한 참고값(검증 안 됨)'이라고 꼭 밝힌다. dart_compare_text가 있으면 비교로 덧붙인다. "
     "답에는 도구 결과의 영어 필드 이름(예: avg_income_vs_cap_pct)을 쓰지 말고 우리말로만 설명한다. "
     f"보험료 상한은 기억으로 쓰지 말고 지금 값(기준소득월액 월 {META['cap_monthly'] / 1e4:,.0f}만 원, 연 {CAP_ANNUAL / 1e4:,.0f}만 원)만 쓴다. "
     "정확도를 물으면 method_and_limits의 accuracy_text 숫자를 꼭 넣는다. "
@@ -166,6 +169,58 @@ def _trend(key):
 
 # 상장사 공식 홈페이지 (DART 기업개황 hm_url, src/make_link_data.py). 웹 화면의 '공식 홈페이지' 버튼용
 HOMEPAGE = _load("homepage.parquet")["hm_url"].to_dict() if (DATA_DIR / "homepage.parquet").exists() else {}
+
+# 연차별 참고 연봉: 국민연금에는 사람별 근속이 없어서, 정부 통계(고용형태별노동실태조사 2025)의 업종 × 근속 구간 임금 비율을
+# 회사 평균 추정에 곱한다. 상장사 공시(평균 근속연수 ↔ 평균 급여) 기울기는 비교용. 근거: reports/tenure_check.md
+_TENURE_FILE = ROOT / "data/app/tenure_wage_2025.json"  # 분석·배포 모두 같은 파일 (작은 참고 자료)
+TENURE = json.loads(_TENURE_FILE.read_text(encoding="utf-8")) if _TENURE_FILE.exists() else None
+TENURE_LABELS = ["1년 미만 (신입)", "1~3년", "3~5년", "5~10년", "10년 이상"]
+
+
+def _dart_tenure_slopes():
+    """업종 묶음별로 '평균 근속이 1년 긴 상장사는 평균 급여가 몇 % 높은가' (직원 수 로그로 규모를 뺀 회귀, 30곳 이상)."""
+    d = DATA[(DATA["dart_avg_salary"] > 0) & (DATA["tenure_years"] > 0)]
+    out = {}
+    for g, s in d.groupby("group", observed=True):
+        if len(s) >= 30:
+            X = np.column_stack([np.ones(len(s)), s["tenure_years"], np.log(s["members"])])
+            b = np.linalg.lstsq(X, np.log(s["dart_avg_salary"].astype(float)), rcond=None)[0]
+            out[g] = (round(float(np.exp(b[1]) - 1) * 100, 1) + 0.0, len(s))  # -0.0 → 0.0
+    return out
+
+
+DART_TENURE = _dart_tenure_slopes() if TENURE else {}
+
+
+def _tenure_curve(r):
+    # 상장사는 사업보고서의 실제 평균 급여, 아니면 추정 연봉을 기준으로 한다
+    actual = not pd.isna(r["dart_avg_salary"]) and r["dart_avg_salary"] > 0
+    base = r["dart_avg_salary"] if actual else r["est_corrected"]
+    if not TENURE or pd.isna(base):
+        return None
+    industry = TENURE["group_to_industry"].get(r["group"], "전체")
+    w = TENURE["wage_thousand_won"][industry]
+    ratios = [v / w[0] for v in w[1:]]
+    first, last = w[1], w[5]
+    dart = DART_TENURE.get(r["group"])
+    out = {"industry_basis": industry.split(".")[-1],
+           "buckets": TENURE_LABELS,
+           "ratio_to_average": [round(x, 2) for x in ratios],
+           "base_text": ("공시 평균 급여 " if actual else "추정 평균 연봉 ") + _won_text(base),
+           "salary_manwon": [_manwon(base * x) for x in ratios],
+           "salary_text": [_won_text(base * x) for x in ratios],
+           "growth_text": f"같은 업종에서 10년 이상 근속자의 임금은 1년 미만의 약 {last / first:.1f}배",
+           "dart_compare_text": (None if dart is None else
+                                 f"상장사 {dart[1]:,}곳 비교: 평균 근속이 1년 긴 회사는 평균 급여가 "
+                                 + ("거의 같다 " if abs(dart[0]) < 0.5 else f"{dart[0]:+.1f}% ")
+                                 + "(회사끼리 비교라 한 사람의 상승률보다 작게 나온다)"),
+           "basis": ("고용노동부 고용형태별노동실태조사 2025(상용 5인 이상)의 같은 업종 근속 구간별 임금 ÷ 업종 평균을 "
+                     "이 회사 평균 연봉(상장사는 공시값, 아니면 추정값)에 곱한 참고값"),
+           "meaning": ("이 회사의 실제 연차별 연봉이 아니라, '이 회사가 업종 평균과 같은 연차 구조라면'의 참고값이다. "
+                       "검증하지 않았고, 회사마다 호봉 체계·성과급이 달라 크게 다를 수 있다")}
+    if r["cap_ratio"] >= 0.9:
+        out["meaning"] += ". 평균 소득이 보험료 상한에 가까워 회사 평균 추정 자체가 낮게 나왔을 수 있다"
+    return out
 YEAR_EXIT_MEDIAN = ({} if TURNOVER.empty else
                     TURNOVER[TURNOVER["avg_members"] >= 30].join(DATA.set_index("company_key")["group"])
                     .groupby("group")["annual_exit_rate"].median().to_dict())
@@ -275,6 +330,7 @@ def _summary(r):
         "small_business_group": _small_group(r),
         "shrunk_estimate": _shrunk(r),
         "salary_trend": _trend(r["company_key"]),
+        "tenure_curve": _tenure_curve(r),
         "turnover": _turnover(r),
         "confidence": _confidence(r),
     }
