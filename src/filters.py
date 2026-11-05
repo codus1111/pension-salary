@@ -68,8 +68,12 @@ def in_regions(data, regions, region_sites=None):
 
 
 def find(data, groups=(), regions=(), size="전체", salary=(None, None), growing=False, listed=False,
-         min_members=10, limit=20, region_sites=None):
-    """조건에 맞는 회사를 추정 연봉 높은 순으로. 10명 미만은 숫자가 불안정해서 빼고 small_summary로 묶어 본다."""
+         min_members=10, limit=20, region_sites=None, hiring=None):
+    """조건에 맞는 회사를 추정 연봉 높은 순으로. 10명 미만은 숫자가 불안정해서 빼고 small_summary로 묶어 본다.
+
+    hiring: 회사별 2025년 1년 입사율(company_key → 비율). 주면 '요즘 채용 많이 하는 순'으로 줄 세운다.
+    직원 30명 미만은 몇 명만 뽑아도 비율이 크게 튀어서 뺀다.
+    """
     data = in_regions(data, regions, region_sites)
     m = data["members"] >= min_members
     if groups:
@@ -87,6 +91,9 @@ def find(data, groups=(), regions=(), size="전체", salary=(None, None), growin
     if listed:
         m &= data["dart_avg_salary"].notna()
     sub = data[m]
+    if hiring is not None:
+        sub = sub[sub["members"] >= 30].assign(hire_rate=lambda x: x["company_key"].map(hiring)).dropna(subset=["hire_rate"])
+        return len(sub), sub.nlargest(limit, "hire_rate")
     return len(sub), sub.nlargest(limit, "est_corrected")
 
 
@@ -146,4 +153,6 @@ def to_rows(top):
              "members": int(r.members), "estimated_salary_manwon": man(r.est_corrected),
              "range_manwon": [man(r.range_low), man(r.range_high)],
              "likely_range_manwon": [man(r.range50_low), man(r.range50_high)],
-             "dart_actual_salary_manwon": man(r.dart_avg_salary)} for r in top.itertuples()]
+             "dart_actual_salary_manwon": man(r.dart_avg_salary),
+             "hire_rate_pct": None if not hasattr(r, "hire_rate") else round(float(r.hire_rate) * 100)}
+            for r in top.itertuples()]

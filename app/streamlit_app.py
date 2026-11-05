@@ -388,7 +388,7 @@ def nav():
 
 def hero_copy():
     st.markdown('<div class="s-hero"><p class="s-eyebrow">COMPANY SALARY INTELLIGENCE</p>'
-                '<h1>궁금했던 회사 연봉,<br><span class="s-blue">데이터로 알아보세요.</span></h1>'
+                '<h1>궁금했던 회사 연봉, <br><span class="s-blue">데이터로 알아보세요.</span></h1>'
                 '<p class="s-desc">국민연금 데이터와 기업 공시를 바탕으로<br>'
                 '평균 연봉부터 회사 비교까지, AI와 함께 살펴보세요.</p></div>', unsafe_allow_html=True)
 
@@ -549,14 +549,16 @@ def salary_ruler(r):
             f'<p class="sr-note">{note}</p></div>')
 
 
-def compare_chart(rows, small=None, small_where=""):
+def compare_chart(rows, small=None, small_where="", keep_order=False):
     """여러 회사: 표 + 간트 차트. 한 줄이 회사 하나.
 
     막대그래프로는 "숫자가 많아 읽기 어렵다"는 의견이 있어서, 숫자는 표 칸에 글자로 두고, 맨 오른쪽 칸에는
     모든 회사를 같은 눈금 위에 범위 막대(간트 차트처럼)로 그려 회사끼리 위치를 바로 비교하게 했다.
     small: filters.small_summary 결과. 있으면 맨 아래에 '기타: 10명 미만 사업장' 한 줄을 회사처럼 넣는다.
     """
-    rows = sorted([r for r in rows if r.get("estimated_salary_manwon")], key=lambda r: -r["estimated_salary_manwon"])
+    rows = [r for r in rows if r.get("estimated_salary_manwon")]
+    if not keep_order:  # '요즘 채용 많은 순'처럼 이미 줄 세운 결과는 그 순서를 지킨다
+        rows = sorted(rows, key=lambda r: -r["estimated_salary_manwon"])
     if not rows:
         return None
     vals = [v for r in rows for v in (*(r.get("likely_range_manwon") or []), r["estimated_salary_manwon"],
@@ -579,6 +581,21 @@ def compare_chart(rows, small=None, small_where=""):
             out += f'<span class="gt-dart" style="left:{pos(dart):.1f}%"></span>'
         return out + "</div>"
 
+    # 연차별 참고 연봉(신입·5년 차)과 1년 입사율은 있는 결과에서만 칸을 만든다
+    has_tc = any((r.get("tenure_curve") or {}).get("by_year_manwon") for r in rows)
+    has_hire = any(r.get("hire_rate_pct") is not None for r in rows)
+
+    def extra(r):
+        out = ""
+        if has_tc:
+            by = (r.get("tenure_curve") or {}).get("by_year_manwon")
+            out += (f"<td class='gt-num t-hide'>{won(by[0])}<small>5년 차 {won(by[5])}</small></td>" if by else
+                    "<td class='gt-num t-hide'><span class=gt-none>-</span></td>")
+        if has_hire:
+            h = r.get("hire_rate_pct")
+            out += f"<td class='gt-num'>{'-' if h is None else f'+{h}%'}</td>"
+        return out
+
     body = []
     for i, r in enumerate(rows, 1):
         est, dart = r["estimated_salary_manwon"], r.get("dart_actual_salary_manwon")
@@ -590,7 +607,7 @@ def compare_chart(rows, small=None, small_where=""):
             f"<td class='gt-num'><b class='v-e'>{won(est)}</b></td>"
             f"<td class='gt-num t-hide'>{f'{won(c)} ~ {won(d)}' if c else '-'}</td>"
             f"<td class='gt-num'>{f'<b class=v-d>{won(dart)}</b>' if dart else '<span class=gt-none>-</span>'}</td>"
-            f"<td class='gt-chart'>{gantt((c, d), est, dart) if c else ''}</td></tr>")
+            + extra(r) + f"<td class='gt-chart'>{gantt((c, d), est, dart) if c else ''}</td></tr>")
     if small:
         a, b = small["middle50_manwon"]
         body.append(
@@ -599,11 +616,16 @@ def compare_chart(rows, small=None, small_where=""):
             f"<td class='gt-num'><b>{won(small['avg_manwon'])}</b><small>평균</small></td>"
             f"<td class='gt-num t-hide'>{won(a)} ~ {won(b)}<small>가운데 50% 사업장</small></td>"
             f"<td class='gt-num'><span class='gt-none'>-</span></td>"
-            f"<td class='gt-chart'>{gantt((a, b), small['avg_manwon'], cls=' gt-track-small')}</td></tr>")
-    legend = ('<div class="gt-legend"><span><i class="k-gband"></i>예상 범위</span><span><i class="k-gest"></i>추정</span>'
-              '<span><i class="k-gdart"></i>실제 공시 (상장사만)</span><span class="gt-unit">금액 단위: 원</span></div>')
+            + ("<td class='gt-num t-hide'></td>" if has_tc else "") + ("<td class='gt-num'></td>" if has_hire else "")
+            + f"<td class='gt-chart'>{gantt((a, b), small['avg_manwon'], cls=' gt-track-small')}</td></tr>")
+    # 색만으로 구분하지 않게 모양도 말로 적는다 (색 구분이 어려운 사람도 읽히게)
+    legend = ('<div class="gt-legend"><span><i class="k-gband"></i>넓은 막대 = 예상 범위</span>'
+              '<span><i class="k-gest"></i>동그라미 = 추정</span>'
+              '<span><i class="k-gdart"></i>세로 선 = 실제 공시 (상장사만)</span><span class="gt-unit">금액 단위: 원</span></div>')
+    heads = (('<th class="gt-num t-hide">신입 참고</th>' if has_tc else "")
+             + ('<th class="gt-num">1년 새 직원</th>' if has_hire else ""))
     return (f'<div class="gt">{legend}<table><thead><tr><th></th><th>회사</th><th class="gt-num">추정 연봉</th>'
-            f'<th class="gt-num t-hide">예상 범위</th><th class="gt-num">실제 (공시)</th>'
+            f'<th class="gt-num t-hide">예상 범위</th><th class="gt-num">실제 (공시)</th>{heads}'
             f'<th class="gt-chart"><div class="gt-ticks">{ticks}</div></th></tr></thead>'
             f'<tbody>{"".join(body)}</tbody></table></div>')
 
@@ -819,12 +841,74 @@ def similar_block(r):
         st.markdown(compare_chart(sim["companies"]), unsafe_allow_html=True)
 
 
-def show_visuals(kind, rows):
+APP_URL = "https://yeon-salary-agent.streamlit.app"
+
+
+def conclusion(m):
+    """맨 위 한 줄 결론. 자세한 내용(눈금자·카드·그래프·AI 설명)은 이 아래에 펼쳐서 보여준다."""
+    kind, rows = m.get("kind"), m.get("rows") or []
+    if m.get("mode") == "filter":
+        if not rows:
+            return "📌 조건에 맞는 회사가 없어요. 조건을 넓혀 보세요."
+        top = rows[0]
+        if m.get("hiring"):
+            return (f"📌 조건에 맞는 회사 <b>{m['n']:,}곳</b> 중 2025년에 직원을 가장 많이 늘린 곳은 <b>{html.escape(top['name'])}</b>"
+                    f" (1년 새 직원 +{top.get('hire_rate_pct')}% · 추정 연봉 약 {won(top['estimated_salary_manwon'])} 원)")
+        return (f"📌 조건에 맞는 회사 <b>{m['n']:,}곳</b> 중 추정 연봉이 가장 높은 곳은 <b>{html.escape(top['name'])}</b>"
+                f" (약 {won(top['estimated_salary_manwon'])} 원)")
+    if kind == "single" and rows:
+        r = rows[0]
+        c, d = r.get("likely_range_manwon") or [None, None]
+        conf = r.get("confidence") or {}
+        parts = [f"📌 <b>{html.escape(r['name'])}</b> 평균 연봉 <b>약 {won(r['estimated_salary_manwon'])} 원</b>"]
+        if r.get("dart_actual_salary_manwon"):
+            parts.append(f"실제 공시 <b>{won(r['dart_actual_salary_manwon'])} 원</b>")
+        elif c:
+            parts.append(f"가능성 높은 범위 {won(c)} ~ {won(d)} 원")
+        if r.get("industry_top_pct"):
+            parts.append(f"같은 업종 상위 {r['industry_top_pct']}%")
+        if conf:
+            parts.append(f"정확도 {conf['light']} {conf['level']}")
+        return " · ".join(parts)
+    if kind in ("compare", "ranking") and rows:
+        ok = sorted([r for r in rows if r.get("estimated_salary_manwon")], key=lambda r: -r["estimated_salary_manwon"])
+        if len(ok) >= 2:
+            hi, lo = ok[0], ok[-1]
+            return (f"📌 {len(ok)}곳 중 추정 연봉이 가장 높은 곳은 <b>{html.escape(hi['name'])}</b> (약 {won(hi['estimated_salary_manwon'])} 원), "
+                    f"가장 낮은 곳은 {html.escape(lo['name'])} (약 {won(lo['estimated_salary_manwon'])} 원)")
+    return None
+
+
+def my_year_box(r, i):
+    """④ '내 연차'를 넣으면 그 연차의 참고 연봉 (정부 통계 업종 곡선 × 회사 평균, 검증 안 된 참고값)."""
+    by = (r.get("tenure_curve") or {}).get("by_year_manwon")
+    if not by:
+        return
+    with st.container(key=f"myyear{i}"):
+        c1, c2 = st.columns([2, 3], vertical_alignment="center")
+        y = c1.slider("내 연차", 0, 20, 3, key=f"yr{i}", format="%d년 차", help="0년 차 = 신입. 20년 차까지 볼 수 있어요.")
+        c2.markdown(f'<p class="s-myyear">{"신입" if y == 0 else f"{y}년 차"} 참고 연봉 <b>약 {won(by[y])} 원</b>'
+                    f'<br><span>업종의 연차별 임금 차이를 이 회사에 적용한 참고값이에요 (검증 안 됨)</span></p>',
+                    unsafe_allow_html=True)
+
+
+def share_box(name):
+    """⑦ 이 회사 결과를 바로 여는 주소. 친구에게 보내거나 포트폴리오 시연에 쓴다 (비밀번호는 따로 필요)."""
+    url = f"{secret('APP_URL') or APP_URL}/?q={quote(search_name(name))}"
+    with st.expander("🔗 이 결과 공유하기"):
+        st.code(url, language=None)
+        st.caption("오른쪽 위 버튼으로 복사해서 보내면, 받은 사람이 열자마자 이 회사 결과가 나와요. (비밀번호가 있으면 입장 후)")
+
+
+def show_visuals(kind, rows, i=0):
     if not kind:
         return
     if kind == "single":
-        st.markdown(salary_ruler(rows[0]) + single_cards(rows[0]), unsafe_allow_html=True)
-        similar_block(rows[0])
+        r = rows[0]
+        st.markdown(salary_ruler(r) + single_cards(r), unsafe_allow_html=True)
+        my_year_box(r, i)
+        similar_block(r)
+        share_box(r["name"])
         return
     chart = compare_chart(rows[:10])
     if chart is not None:
@@ -834,42 +918,88 @@ def show_visuals(kind, rows):
 # ---------- 화면 ----------
 if "history" not in st.session_state:
     st.session_state["history"] = []   # 에이전트가 기억하는 대화 (도구 호출 포함)
-    st.session_state["messages"] = []  # 화면에 보이는 대화
+    st.session_state["messages"] = []  # 화면에 보이는 결과 (최근 것이 위)
 
-# 본 화면은 첫 화면(파란 상자)을 낮게: 들어오자마자 스크롤 없이 아래 검색창까지 보이게 (비밀번호 화면은 그대로 꽉 차게)
+# 첫 화면: 그림 배경 위에 제목 → 검색창 하나(조건 필터 포함) → 예시. 들어오자마자 여기서 바로 검색한다
 st.markdown("""<style>
-.st-key-hero { min-height:0 !important; padding:28px 38px 16px !important; }
-.s-eyebrow { margin:0 0 10px !important; }
-.s-hero h1 { margin:0 0 8px !important; line-height:1.25 !important; }
-.s-desc { margin:0 0 10px !important; line-height:1.65 !important; }
-.st-key-hero [class*="st-key-sg"] button { min-height:60px !important; padding:9px 14px !important; }
-.st-key-hero [class*="st-key-sg"] button > div { margin-top:15px !important; }
-.st-key-hero [class*="st-key-sg"] button::before { top:8px !important; }
-.st-key-hero .s-note { margin-top:4px !important; }
-.st-key-workspace { margin-top:12px !important; padding-top:18px !important; }
-.st-key-askbox [data-testid="stForm"] { margin:8px 0 14px !important; }
-@media (min-width:1600px) {
-  .st-key-hero { padding:32px 48px 18px !important; }
-  .s-hero h1 { font-size:46px !important; }
-}
+.st-key-hero { min-height:0 !important; padding:30px 38px 18px !important;
+               background-size:auto 118% !important; background-position:right -40px center !important; }
+.s-eyebrow { margin:0 0 8px !important; }
+.s-hero h1 { margin:0 0 6px !important; line-height:1.25 !important; }
+.s-desc { margin:0 0 14px !important; line-height:1.6 !important; }
+.st-key-hero [data-testid="stForm"] { max-width:760px; margin:0 0 10px; }
+.st-key-hero [data-testid="stExpander"] { max-width:760px; }
+.st-key-hero [data-testid="stExpander"] details { background:#ffffffd9 !important; border-color:#d3e3f6 !important; }
+.st-key-hero [data-testid="stExpander"] [data-testid="stForm"] { max-width:none; border:0; border-radius:14px; box-shadow:none;
+               background:transparent; padding:4px 2px; }
+.st-key-hero [data-testid="stExpander"] summary p { font-size:13px !important; font-weight:650; color:#24456c !important; }
+.st-key-hero [class*="st-key-sg"] button { min-height:0 !important; padding:8px 14px !important; border-radius:99px !important; }
+.st-key-hero [class*="st-key-sg"] button::before { display:none; }
+.st-key-hero [class*="st-key-sg"] button > div { margin-top:0 !important; }
+.st-key-hero .s-suggest-title { margin:10px 0 0 !important; }
+.st-key-hero .s-note { margin:6px 0 0 4px !important; }
+.st-key-workspace { margin-top:14px !important; padding-top:20px !important; }
+.s-concl { background:#eef5ff; border:1px solid #cfe1f8; border-radius:14px; padding:13px 16px; margin:2px 0 10px;
+           font-size:15.5px !important; line-height:1.7; color:var(--ink) !important; }
+.s-concl b { color:#0757c8; }
+.s-detail-h { font-size:12px !important; font-weight:700; color:#4572a9 !important; letter-spacing:.5px; margin:12px 0 2px !important; }
+.s-ai-note { font-size:12px !important; color:#8193a8 !important; margin:4px 0 8px !important; }
+.s-myyear { font-size:14px !important; margin:0 !important; line-height:1.6; }
+.s-myyear b { color:#0757c8; font-size:17px; }
+.s-myyear span { font-size:11.5px; color:#8193a8; }
+[class*="st-key-myyear"] { background:white; border:1px dashed #c9d8ea; border-radius:14px; padding:8px 16px 4px; margin:8px 0; }
+.s-cand { font-size:13px !important; margin:0 !important; }
+.s-cand small { color:#8193a8; }
+@media (min-width:1600px) { .st-key-hero { padding:36px 48px 20px !important; } .s-hero h1 { font-size:46px !important; } }
 @media (max-width:640px) {
-  .st-key-hero { padding:22px 18px 14px !important; }
-  /* 휴대폰: 예시 카드 위 분류 글씨를 빼고 납작하게 → 첫 화면에 검색창까지 들어오게 */
-  .st-key-hero [class*="st-key-sg"] button { min-height:0 !important; padding:8px 12px !important; }
-  .st-key-hero [class*="st-key-sg"] button::before { display:none; }
-  .st-key-hero [class*="st-key-sg"] button > div { margin-top:0 !important; }
-  .st-key-hero [data-testid="stColumn"] { margin-bottom:-6px; }
+  .st-key-hero { padding:22px 16px 14px !important; background-size:100% auto !important; background-position:center bottom !important; }
+  .s-desc br { display:none; }
+  .st-key-hero [data-testid="stColumn"] { margin-bottom:-8px; }
+  .s-concl { font-size:14.5px !important; padding:11px 12px; }
 }
 </style>""", unsafe_allow_html=True)
 nav()
-question = st.session_state.pop("pending_q", None)  # 아래 '조건으로 찾기'에서 누른 회사 질문
-# 첫 화면: 제목 + 예시 질문. 검색창은 아래 대화 칸 바로 위로 내려서, 검색하면 결과가 검색창 바로 밑에 보이게 했다
+
+question = st.session_state.pop("pending_q", None)   # AI에게 물을 질문
+search_q = st.session_state.pop("pending_search", None)  # 회사 바로 보기
+# ⑦ 공유 주소(?q=회사)로 들어오면 그 회사를 바로 보여준다 (한 번만)
+if not st.session_state.get("qp_done") and st.query_params.get("q"):
+    search_q = st.query_params.get("q")
+    st.session_state["qp_done"] = True
+
 with st.container(key="hero"):
     hero_copy()
-    st.markdown('<p class="s-suggest-title">이렇게 검색해 보세요 · 누르면 바로 물어봐요</p>', unsafe_allow_html=True)
+    with st.form("search", border=False, clear_on_submit=True):
+        c1, c2 = st.columns([5, 1])
+        typed = c1.text_input("검색", placeholder="🔍  회사 이름 또는 질문 (예: 토스, 네이버랑 카카오 비교)",
+                              label_visibility="collapsed")
+        if c2.form_submit_button("검색", use_container_width=True) and typed.strip():
+            search_q = typed.strip()
+    # 조건 필터도 같은 검색창 아래에 (업종·지역·규모·연봉·채용)
+    with st.expander("🎛️ 조건으로 찾기 · 업종 · 지역 · 규모 · 연봉 · 요즘 채용 많은 곳"):
+        with st.form("filters", border=False):
+            f1, f2 = st.columns(2)
+            groups = f1.multiselect("업종", filters.GROUP_NAMES, placeholder="전체 업종")
+            regions = f2.multiselect("지역", sorted(DATA["sido"].dropna().unique()), placeholder="전체 지역",
+                                     help="그 지역에 있는 사업장 기준이에요. 여러 지역에 사업장이 있는 회사는 그 지역 몫만 계산해요. "
+                                          "전국 직원을 본사 한 곳으로 신고한 회사(삼성전자 등)는 본사 지역에만 나와요.")
+            f3, f4 = st.columns(2)
+            size = f3.selectbox("회사 규모", list(filters.SIZES))
+            salary = f4.select_slider("추정 연봉 (만 원)", options=[0, 3000, 4000, 5000, 6000, 7000, 8000, 10000, 20000],
+                                      value=(0, 20000),
+                                      format_func=lambda v: "0" if v == 0 else "2억 이상" if v == 20000 else f"{v:,}")
+            f5, f6, f7 = st.columns(3)
+            hiring = f5.checkbox("요즘 채용 많은 순", help="2025년 1월 → 12월 직원이 많이 늘어난 순서예요 (사람을 실제로 늘린 곳). "
+                                                 "직원 100명 이상만 보고, 사람이 계속 바뀌는 곳(1년 퇴사율 60% 넘음, 청소·경비·공사업 등)은 뺐어요")
+            growing = f6.checkbox("직원이 늘고 있는 회사만", help="이번 달 입사자가 퇴사자보다 많은 회사")
+            listed = f7.checkbox("상장사만", help="실제 공시 연봉과 같이 볼 수 있어요")
+            if st.form_submit_button("이 조건으로 찾기", use_container_width=True):
+                st.session_state["pending_filter"] = dict(groups=groups, regions=regions, size=size, salary=salary,
+                                                          hiring=hiring, growing=growing, listed=listed)
+    st.markdown('<p class="s-suggest-title">이렇게 검색해 보세요 · 누르면 바로 찾아봐요</p>', unsafe_allow_html=True)
     for i, (col, (_, q)) in enumerate(zip(st.columns(3), SUGGESTIONS)):
         if col.button(q, key=f"sg{i}", use_container_width=True):
-            question = q
+            search_q = q
     st.markdown('<p class="s-note">국민연금 2026년 9월 자료 · DART 2025 사업연도(2025.1.1~12.31) 공시로 검증</p>',
                 unsafe_allow_html=True)
 
@@ -939,85 +1069,6 @@ def feedback_bar(i, user, answer):
             st.rerun()
 
 
-def show_pair(user, answer, i):
-    st.markdown(f'<div class="s-user"><b>나</b>{html.escape(user)}</div>', unsafe_allow_html=True)
-    if answer:
-        with st.container(key=f"answer{i}"):
-            st.markdown('<span class="s-who">회사 연봉 AI</span>', unsafe_allow_html=True)
-            show_answer(answer["content"], answer.get("unchecked", []))
-            show_visuals(answer.get("kind"), answer.get("rows", []))
-            if answer.get("tools"):
-                st.caption("사용한 도구: " + " → ".join(answer["tools"]))
-            feedback_bar(i, user, answer)
-
-
-with st.container(key="workspace"):
-    h1, h2 = st.container(key="whead").columns([5, 1], vertical_alignment="center")
-    h1.markdown('<p class="s-h2">AI에게 물어보기</p>'
-                '<p class="s-caption">회사 이름이나 궁금한 내용을 적으면, 답이 바로 아래에 나와요.</p>', unsafe_allow_html=True)
-    if h2.button("초기화", key="reset", use_container_width=True):
-        st.session_state["history"], st.session_state["messages"] = [], []
-        st.rerun()
-    with st.container(key="askbox"):
-        with st.form("search", border=False, clear_on_submit=True):
-            c1, c2 = st.columns([5, 1])
-            typed = c1.text_input("질문", placeholder="🔍  회사 이름이나 궁금한 내용을 검색하세요", label_visibility="collapsed")
-            if c2.form_submit_button("검색", use_container_width=True) and typed.strip():
-                question = typed.strip()
-
-    # 이전 대화: (질문, 답) 묶음을 만든 뒤, 새 질문이 검색창 바로 밑에 오도록 최근 것부터 보여준다
-    msgs = st.session_state["messages"]
-    pairs = []
-    for i, m in enumerate(msgs):
-        if m["role"] == "user":
-            pairs.append([m["content"], None, i])
-        elif pairs:
-            pairs[-1][1], pairs[-1][2] = m, i
-
-    if question:  # 새 질문을 먼저(검색창 바로 밑에) 그리고, 이전 대화는 그 아래에 그린다
-        st.session_state["messages"].append({"role": "user", "content": question})
-        st.markdown(f'<div class="s-user"><b>나</b>{html.escape(question)}</div>', unsafe_allow_html=True)
-        history = st.session_state["history"]
-        before = len(history)
-        with st.container(key=f"answer{len(st.session_state['messages'])}"):
-            st.markdown('<span class="s-who">회사 연봉 AI</span>', unsafe_allow_html=True)
-            with st.status("데이터를 찾아보는 중이에요…", expanded=False) as status:
-                try:
-                    if provider is None:
-                        raise RuntimeError("이 실행 환경에 GEMINI_API_KEY가 없어 AI 질문을 쓸 수 없어요. "
-                                           "아래 '회사 직접 찾기'는 키 없이 쓸 수 있어요. (키 넣는 법: README의 실행 방법)")
-                    out = agent.ask(question, provider, history=history, log=lambda s: status.write(s))
-                    status.update(label="답을 찾았어요", state="complete")
-                except Exception as e:
-                    del history[before:]
-                    status.update(label="답을 받지 못했어요", state="error")
-                    out = None
-                    st.error(str(e) if provider is None else
-                             "AI 서버가 바쁘거나 오늘 무료 사용량을 다 썼어요. 잠시 뒤 다시 시도해 주세요.\n\n" + str(e)[:200])
-            if out:
-                tools = [t["tool"] for t in out["trace"]]
-                kind, rows = collect(out["trace"])
-                # 이 대화에서 도구가 돌려준 금액 전부와 답 속 금액을 대조한다 (평가 채점기와 같은 함수)
-                st.session_state.setdefault("tool_nums", set()).update(evaluate.tool_numbers(out["trace"]))
-                st.session_state.setdefault("main_nums", set()).update(main_salaries(out["trace"]))
-                unchecked = [a for a, tol in evaluate.amounts_in(out["answer"] or "")
-                             if not grounded(a, tol, st.session_state["tool_nums"], st.session_state["main_nums"])]
-                show_answer(out["answer"], unchecked)
-                show_visuals(kind, rows)
-                if tools:
-                    st.caption("사용한 도구: " + " → ".join(tools))
-                st.session_state["messages"].append({"role": "assistant", "content": out["answer"], "tools": tools,
-                                                     "kind": kind, "rows": rows, "unchecked": unchecked})
-                feedback_bar(len(st.session_state["messages"]) - 1, question, st.session_state["messages"][-1])
-
-    if pairs and question:
-        st.markdown('<p class="s-caption" style="margin:18px 0 6px">이전 대화</p>', unsafe_allow_html=True)
-    for user, answer, i in reversed(pairs):
-        show_pair(user, answer, i)
-
-    st.markdown('<p class="s-caption" style="font-size:11px;margin-top:14px">회사 전체의 평균 추정치예요. '
-                '신입·직무·개인 연봉과 다르며, 답변의 오차 범위도 함께 확인해 주세요.</p>', unsafe_allow_html=True)
-
 def small_card(s, where):
     """10명 미만 소규모 사업장을 하나로 묶은 평균 카드."""
     return ('<div class="s-small"><small>🏠 소규모 사업장 (직원 10명 미만) · ' + html.escape(where) + '</small>'
@@ -1029,91 +1080,257 @@ def small_card(s, where):
             + '</div><em>작은 사업장은 한 곳씩 보면 오차가 커서 같은 조건끼리 묶어 평균을 냈어요.</em></div>')
 
 
-def ask_about(name):
-    st.session_state["pending_q"] = f"{name} 평균 연봉 자세히 알려줘"
-    st.toast("위쪽 대화 칸에서 AI가 답하고 있어요 ⬆️")
-    st.rerun()
+# 질문처럼 보이는 말 (이게 있으면 AI에게, 없고 회사 이름만이면 데이터에서 바로)
+ASK_RE = re.compile(r"[?？]|비교|어디|추천|순위|높은|낮은|얼마|알려|어때|어떤|어느|이랑|랑 |하고 |\bvs\b|업계|업종|"
+                    r"신입|퇴사|이직|분위기|왜|차이|해줘|할까|인가|일까")
+TAIL_RE = re.compile(r"\s*(평균\s*)?(연봉|월급|급여)\s*(은|이|정보)?\s*$")
+STOP = {"평균", "연봉", "월급", "급여", "회사", "비교", "정도", "어느", "얼마", "신입", "자세히", "알려줘", "해줘", "업계", "업종"}
+JOSA_RE = re.compile(r"(이랑|랑|하고|와|과|은|는|이|가|을|를|의|도|에서|보다)$")
 
 
-# ---------- 조건으로 찾기: AI 없이 데이터에서 바로 (무료·즉시) ----------
-with st.container(key="explore"):
-    st.markdown('<p class="s-h2">회사 직접 찾기</p><p class="s-caption">AI를 거치지 않고 데이터에서 바로 찾아요. '
-                '브랜드 이름(토스, 배민, 스타벅스 등)으로도 찾을 수 있어요.</p>', unsafe_allow_html=True)
-    by_name, by_filter = st.tabs(["🔎 이름으로 찾기", "🎛️ 조건으로 찾기"])
+def strong_hits(q, hits):
+    """검색어가 이름에 그대로 들어간, 직원 10명 이상인 회사들."""
+    qk = agent.tools._key(agent.tools.to_legal(q) or q)
+    return [h for h in hits if qk and qk in agent.tools._key(h["name"]) and h["members"] >= 10]
 
-    with by_name:
-        name_q = st.text_input("회사 이름", placeholder="예: 토스, 배민, 현대차, 카카오", label_visibility="collapsed",
-                               key="name_q")
-        if name_q.strip():
-            hits = agent.tools.search_company(name_q, limit=8)
-            note = agent.tools.brand_note(name_q) if hasattr(agent.tools, "brand_note") else None
-            if note and hits:
-                st.caption("🔎 " + note)
-            # 오타 추천: 결과가 없으면 가장 비슷한 이름을 '○○(으)로 검색하시겠어요?' 버튼으로 (예: 카카우 → 카카오)
-            qk = agent.tools._key(agent.tools.to_legal(name_q) or name_q)
-            # 결과가 없거나, 작은 가게뿐이거나, 검색어가 이름에 그대로 든 회사가 없으면 ('현대자등차' → 현대회계법인만 나옴)
-            weak = (not hits or all(h["members"] < 10 for h in hits)
-                    or not any(qk in agent.tools._key(h["name"]) for h in hits))
-            guess = agent.tools.suggest_name(name_q) if weak and hasattr(agent.tools, "suggest_name") else None
-            if guess:
-                guess = search_name(guess)  # '현대자동차(주)' → '현대자동차' (괄호까지 넣으면 작은 지점이 먼저 나온다)
-                st.button(f"🔎 '{guess}'(으)로 검색하시겠어요?", key="suggest",
-                          on_click=lambda g=guess: st.session_state.update(name_q=g))
-            if not hits:
-                # 라라스윗처럼 국민연금 공개 자료에 아예 없는 회사도 있다 (다른 법인 이름으로 신고했거나 공개 대상이 아님).
-                # 연봉 추정은 못 해도 채용 정보는 볼 수 있게, 입력한 이름 그대로 검색 버튼을 준다
-                print(f"[검색 0건] {name_q.strip()}", flush=True)  # 배포 로그에 쌓아 브랜드명 사전 후보로 쓴다
-                st.info("국민연금 공개 자료에서 이 이름을 찾지 못했어요. 정식 회사 이름(법인명)으로 다시 찾아보거나, "
-                        "아래 버튼으로 채용 정보를 먼저 볼 수 있어요. (다른 법인 이름으로 신고했거나 공개 자료에 없는 회사일 수 있어요)")
-                st.markdown(links_html(name_q.strip()), unsafe_allow_html=True)
-            for j, h in enumerate(hits):
-                c1, c2 = st.columns([5, 1], vertical_alignment="center")
-                tiny = h["members"] < 10
-                c1.markdown(f"**{h['name']}**{' `소규모`' if tiny else ''}  \n<span class='s-caption'>"
-                            f"{h['industry'] if filters.group_of(h['industry']) != filters.UNKNOWN else '업종 정보 없음'}"
-                            f" · {h['region'] or '-'} · {h['members']:,}명"
-                            f"{' · 상장사' if h['listed'] else ''}</span>" + links_html(h["name"], h["company_key"]),
-                            unsafe_allow_html=True)
-                if c2.button("AI에게 묻기", key=f"nm{j}", use_container_width=True):
-                    ask_about(h["name"])
-            # 10명 미만은 한 곳만 보면 오차가 커서, 같은 업종 묶음·지역의 소규모 사업장 평균을 같이 보여준다
-            small = next((h for h in hits if h["members"] < 10), None)
-            if small:
-                g = filters.group_of(small["industry"])
-                s = filters.small_summary(DATA, [g], [small["region"]] if small["region"] else [], region_sites=REGION)
-                if s:
-                    st.markdown(small_card(s, f"{small['region'] or '전국'} · {g}"), unsafe_allow_html=True)
 
-    with by_filter:
-        f1, f2 = st.columns(2)
-        groups = f1.multiselect("업종", filters.GROUP_NAMES, placeholder="전체 업종")
-        regions = f2.multiselect("지역", sorted(DATA["sido"].dropna().unique()), placeholder="전체 지역",
-                                 help="그 지역에 있는 사업장 기준이에요. 여러 지역에 사업장이 있는 회사는 그 지역 몫만 계산해요. "
-                                      "전국 직원을 본사 한 곳으로 신고한 회사(삼성전자 등)는 본사 지역에만 나와요.")
-        f3, f4 = st.columns(2)
-        size = f3.selectbox("회사 규모", list(filters.SIZES))
-        salary = f4.select_slider("추정 연봉 (만 원)", options=[0, 3000, 4000, 5000, 6000, 7000, 8000, 10000, 20000],
-                                  value=(0, 20000), format_func=lambda v: "0" if v == 0 else "2억 이상" if v == 20000 else f"{v:,}")
-        f5, f6 = st.columns(2)
-        growing = f5.checkbox("직원이 늘고 있는 회사만", help="이번 달 입사자가 퇴사자보다 많은 회사")
-        listed = f6.checkbox("상장사만", help="실제 공시 연봉과 같이 볼 수 있어요")
-        # 10명 미만 사업장은 한 곳씩 보면 흔들려서, 같은 조건끼리 묶어 표 맨 아래 '기타' 한 줄로 넣는다
-        small = (filters.small_summary(DATA, groups, regions, region_sites=REGION)
-                 if size in ("전체", "50명 미만") and not listed and not growing else None)
-        where = " · ".join(regions or ["전국"]) + " · " + (", ".join(groups) or "전체 업종")
-        n, top = filters.find(DATA, groups, regions, size,
-                              (salary[0] or None, None if salary[1] == 20000 else salary[1]), growing, listed, region_sites=REGION)
-        st.caption(f"조건에 맞는 회사 {n:,}곳 (직원 10명 이상) · 추정 연봉 높은 순 상위 {len(top)}곳 · 한 줄이 회사 하나예요"
-                   + (" · 맨 아래 '기타'는 10명 미만 사업장을 묶은 평균이에요" if small else ""))
-        if groups and filters.UNKNOWN not in groups:
-            st.caption("💡 배민·당근처럼 업종이 비어 있는 큰 회사도 있어요. 안 보이면 '업종 정보 없음'도 골라 보세요.")
-        if n:
-            rows = filters.to_rows(top)
-            st.markdown(compare_chart(rows, small, where), unsafe_allow_html=True)
+def detect_companies(text, limit=3):
+    """질문 속 회사 이름 찾기 ('네이버랑 카카오 비교해줘' → 네이버, 카카오). AI보다 먼저 데이터 카드를 띄우는 데 쓴다."""
+    found, keys = [], set()
+    for tok in re.split(r"[\s,·/]+", text):
+        tok = JOSA_RE.sub("", re.sub(r"[?？!.]", "", tok))
+        if len(tok) < 2 or tok in STOP:
+            continue
+        hits = agent.tools.search_company(tok, limit=3)
+        good = [h for h in strong_hits(tok, hits) if h["members"] >= 30]
+        if good and good[0]["company_key"] not in keys:
+            keys.add(good[0]["company_key"])
+            found.append(good[0])
+        if len(found) >= limit:
+            break
+    return found
+
+
+def data_message(q, key=None):
+    """AI 없이 데이터에서 바로 찾은 결과 (② 1초 안에 나온다)."""
+    hits = agent.tools.search_company(q, limit=8)
+    good = strong_hits(q, hits)
+    if key is None and good:
+        key = good[0]["company_key"]
+    if key:
+        r = agent.tools.get_salary_estimate(key)
+        others = [h for h in hits if h["company_key"] != key][:5]
+        st.query_params["q"] = search_name(r["name"])  # 주소창 주소가 곧 공유 주소가 되게
+        return {"role": "assistant", "mode": "data", "kind": "single", "rows": [r], "candidates": others, "query": q,
+                "note": agent.tools.brand_note(q) if hasattr(agent.tools, "brand_note") else None}
+    guess = agent.tools.suggest_name(q) if hasattr(agent.tools, "suggest_name") else None
+    if not hits:
+        print(f"[검색 0건] {q}", flush=True)  # 배포 로그에 쌓아 브랜드명 사전 후보로 쓴다
+    return {"role": "assistant", "mode": "data", "kind": None, "rows": [], "candidates": hits, "query": q,
+            "guess": search_name(guess) if guess else None}
+
+
+def filter_message(f):
+    hire = None
+    if f["hiring"] and not agent.tools.TURNOVER.empty:
+        t = agent.tools.TURNOVER
+        # '요즘 채용 많은 곳' = 사람을 실제로 늘린 곳: 2025년 1월 → 12월 직원 순증가율.
+        # 입사율만 보면 사람이 계속 바뀌는 곳(입사율 150%·퇴사율도 높음)이 위로 올라와서, 퇴사율 60% 이하·직원 100명 이상만 보고
+        # 단기 근로 업종(청소·경비·공사업 등)과 합병으로 보이는 3배 넘는 증가는 뺀다
+        growth = (t["members_dec"] - t["members_jan"]) / t["members_jan"].where(t["members_jan"] > 0)
+        keep = (t["avg_members"] >= 100) & (t["annual_exit_rate"] <= 0.6) & growth.between(0, 3)
+        short = DATA.set_index("company_key")["intp_nm"].astype(str).str.contains(agent.tools.SHORT_RE.pattern, regex=True)
+        hire = growth[keep]
+        hire = hire[~hire.index.isin(short[short].index)]
+    small = (filters.small_summary(DATA, f["groups"], f["regions"], region_sites=REGION)
+             if f["size"] in ("전체", "50명 미만") and not f["listed"] and not f["growing"] and not f["hiring"] else None)
+    where = " · ".join(f["regions"] or ["전국"]) + " · " + (", ".join(f["groups"]) or "전체 업종")
+    salary = f["salary"]
+    n, top = filters.find(DATA, f["groups"], f["regions"], f["size"],
+                          (salary[0] or None, None if salary[1] == 20000 else salary[1]), f["growing"], f["listed"],
+                          region_sites=REGION, hiring=hire)
+    label = (f"🎛️ {where} · {f['size']}" + (" · 요즘 채용 많은 순" if f["hiring"] else "")
+             + (" · 직원 느는 곳" if f["growing"] else "") + (" · 상장사" if f["listed"] else ""))
+    return label, {"role": "assistant", "mode": "filter", "kind": "compare", "rows": filters.to_rows(top), "n": n,
+                   "small": small, "where": where, "hiring": bool(f["hiring"]), "groups": f["groups"]}
+
+
+def render_result(m, user, i):
+    """결과 하나: ① 한 줄 결론 → ② 자세한 내용 (데이터 카드·그래프·AI 설명). 마우스를 올리지 않아도 다 보인다."""
+    concl = conclusion(m)
+    if concl:
+        st.markdown(f'<p class="s-concl">{concl}</p>', unsafe_allow_html=True)
+    mode = m.get("mode", "ai")
+    if mode == "data" and not m.get("rows"):
+        if m.get("guess"):
+            st.button(f"🔎 '{m['guess']}'(으)로 검색하시겠어요?", key=f"guess{i}",
+                      on_click=lambda g=m["guess"]: st.session_state.update(pending_search=g))
+        if not m.get("candidates"):
+            st.info("국민연금 공개 자료에서 이 이름을 찾지 못했어요. 정식 회사 이름(법인명)으로 다시 찾아보거나, "
+                    "아래 버튼으로 채용 정보를 먼저 볼 수 있어요.")
+            st.markdown(links_html(m["query"]), unsafe_allow_html=True)
+        else:
+            st.markdown('<p class="s-detail-h">비슷한 이름의 회사</p>', unsafe_allow_html=True)
+        for j, h in enumerate(m.get("candidates", [])[:8]):
+            c1, c2 = st.columns([5, 1], vertical_alignment="center")
+            c1.markdown(f'<p class="s-cand"><b>{html.escape(h["name"])}</b> <small>{html.escape(h["industry"] or "업종 정보 없음")}'
+                        f' · {h["region"] or "-"} · {h["members"]:,}명{" · 상장사" if h["listed"] else ""}</small></p>',
+                        unsafe_allow_html=True)
+            c2.button("보기", key=f"cand{i}_{j}", use_container_width=True,
+                      on_click=lambda k=h["company_key"], n=h["name"]: st.session_state.update(pending_key=(k, n)))
+        tiny = next((h for h in m.get("candidates", []) if h["members"] < 10), None)
+        if tiny:
+            g = filters.group_of(tiny["industry"])
+            s = filters.small_summary(DATA, [g], [tiny["region"]] if tiny["region"] else [], region_sites=REGION)
+            if s:
+                st.markdown(small_card(s, f"{tiny['region'] or '전국'} · {g}"), unsafe_allow_html=True)
+        return
+    if m.get("note"):
+        st.caption("🔎 " + m["note"])
+    if m.get("fallback"):
+        st.markdown('<p class="s-ai-note">AI가 지금 답하지 못해서, AI 설명 없이 데이터에서 찾은 결과만 보여 드려요.</p>',
+                    unsafe_allow_html=True)
+    if m.get("content"):
+        st.markdown('<p class="s-detail-h">AI 설명</p>', unsafe_allow_html=True)
+        show_answer(m["content"], m.get("unchecked", []))
+    st.markdown('<p class="s-detail-h">자세한 내용</p>', unsafe_allow_html=True)
+    if mode == "filter":
+        if m["rows"]:
+            st.caption(f"조건에 맞는 회사 {m['n']:,}곳 (직원 10명 이상) · "
+                       + ("2025년 직원 증가율 높은 순" if m.get("hiring") else "추정 연봉 높은 순") + f" 상위 {len(m['rows'])}곳"
+                       + (" · 맨 아래 '기타'는 10명 미만 사업장을 묶은 평균이에요" if m.get("small") else ""))
+            if m.get("groups") and filters.UNKNOWN not in m["groups"]:
+                st.caption("💡 배민·당근처럼 업종이 비어 있는 큰 회사도 있어요. 안 보이면 '업종 정보 없음'도 골라 보세요.")
+            st.markdown(compare_chart(m["rows"], m.get("small"), m.get("where", ""), keep_order=m.get("hiring", False)),
+                        unsafe_allow_html=True)
             c1, c2 = st.columns([4, 1], vertical_alignment="bottom")
-            pick = c1.selectbox("자세히 볼 회사", [r["name"] for r in rows])
-            if c2.button("AI에게 묻기", key="pick", use_container_width=True):
-                ask_about(pick)
+            names = [r["name"] for r in m["rows"]]
+            pick = c1.selectbox("자세히 볼 회사", names, key=f"pick{i}")
+            row = m["rows"][names.index(pick)]
+            c2.button("보기", key=f"pickb{i}", use_container_width=True,
+                      on_click=lambda: st.session_state.update(pending_key=(row["company_key"], row["name"])))
+    else:
+        show_visuals(m.get("kind"), m.get("rows", []), i)
+    if mode == "data" and m.get("candidates"):
+        with st.expander(f"다른 후보 {len(m['candidates'])}곳 (이름이 비슷한 회사)"):
+            for j, h in enumerate(m["candidates"]):
+                c1, c2 = st.columns([5, 1], vertical_alignment="center")
+                c1.markdown(f'<p class="s-cand"><b>{html.escape(h["name"])}</b> <small>{h["region"] or "-"} · '
+                            f'{h["members"]:,}명</small></p>', unsafe_allow_html=True)
+                c2.button("보기", key=f"oth{i}_{j}", use_container_width=True,
+                          on_click=lambda k=h["company_key"], n=h["name"]: st.session_state.update(pending_key=(k, n)))
+    if mode in ("data", "filter") and m.get("rows"):
+        target = m["rows"][0]["name"] if mode == "data" else None
+        if target:
+            st.button("🤖 AI에게 더 자세히 묻기", key=f"askai{i}",
+                      on_click=lambda t=target: st.session_state.update(pending_q=f"{t} 평균 연봉 자세히 알려줘"))
+    if m.get("tools"):
+        st.caption("사용한 도구: " + " → ".join(m["tools"]))
+    feedback_bar(i, user, m)
+
+
+def show_pair(user, answer, i):
+    st.markdown(f'<div class="s-user"><b>나</b>{html.escape(user)}</div>', unsafe_allow_html=True)
+    if answer:
+        with st.container(key=f"answer{i}"):
+            st.markdown('<span class="s-who">회사 연봉 AI</span>', unsafe_allow_html=True)
+            render_result(answer, user, i)
+
+
+# 검색어 정리: 회사 이름만이면 데이터에서 바로, 질문이면 AI에게
+pk = st.session_state.pop("pending_key", None)
+pf = st.session_state.pop("pending_filter", None)
+new_user, new_msg = None, None
+if pk:
+    new_user, new_msg = pk[1], data_message(pk[1], key=pk[0])
+elif pf:
+    new_user, new_msg = filter_message(pf)
+elif search_q:
+    name_part = TAIL_RE.sub("", search_q)
+    if name_part and not ASK_RE.search(name_part) and len(name_part.split()) == 1:
+        new_user, new_msg = search_q, data_message(name_part)
+    else:
+        question = search_q
+
+msgs = st.session_state["messages"]
+if new_msg:
+    msgs.append({"role": "user", "content": new_user})
+    msgs.append(new_msg)
+pairs = []
+for i, m in enumerate(msgs):
+    if m["role"] == "user":
+        pairs.append([m["content"], None, i])
+    elif pairs:
+        pairs[-1][1], pairs[-1][2] = m, i
+
+if question or pairs:
+    # 검색한 뒤에는 첫 화면 설명·예시를 접어서, 결과가 스크롤 없이 검색창 바로 아래 보이게
+    st.markdown("""<style>
+    .st-key-hero .s-desc, .st-key-hero .s-suggest-title, .st-key-hero [class*="st-key-sg"],
+    .st-key-hero .s-note, .st-key-hero .s-eyebrow { display:none !important; }
+    .st-key-hero .s-hero h1 { font-size:clamp(22px,2.4vw,30px) !important; margin-bottom:10px !important; }
+    .st-key-hero .s-hero h1 br { display:none; }
+    .st-key-hero { padding:18px 30px 12px !important; min-height:0 !important; }
+    .st-key-hero [data-testid="stHorizontalBlock"]:has([class*="st-key-sg"]) { display:none !important; }
+    @media (max-width:640px) { .st-key-hero { padding:16px 14px 10px !important; background-size:60% auto !important;
+                                              background-position:right bottom !important; } }
+    </style>""", unsafe_allow_html=True)
+    with st.container(key="workspace"):
+        h1, h2 = st.container(key="whead").columns([5, 1], vertical_alignment="center")
+        h1.markdown('<p class="s-h2">검색 결과</p><p class="s-caption">최근 결과가 맨 위에 와요. '
+                    '맨 위 한 줄이 결론이고, 그 아래가 자세한 내용이에요.</p>', unsafe_allow_html=True)
+        if h2.button("초기화", key="reset", use_container_width=True):
+            st.session_state["history"], st.session_state["messages"] = [], []
+            st.query_params.clear()
+            st.rerun()
+
+        if question:  # AI 질문: ② 질문 속 회사의 데이터 결론부터 바로 보여주고, AI 설명은 이어서
+            msgs.append({"role": "user", "content": question})
+            st.markdown(f'<div class="s-user"><b>나</b>{html.escape(question)}</div>', unsafe_allow_html=True)
+            history = st.session_state["history"]
+            before = len(history)
+            i_new = len(msgs)
+            with st.container(key=f"answer{i_new}"):
+                st.markdown('<span class="s-who">회사 연봉 AI</span>', unsafe_allow_html=True)
+                found = detect_companies(question)
+                quick = [agent.tools.get_salary_estimate(h["company_key"]) for h in found]
+                for r in quick:
+                    st.markdown(f'<p class="s-concl">{conclusion({"kind": "single", "rows": [r]})}</p>',
+                                unsafe_allow_html=True)
+                out = None
+                with st.status("AI가 자세한 설명을 쓰는 중이에요… (20초쯤 걸려요)", expanded=False) as status:
+                    try:
+                        if provider is None:
+                            raise RuntimeError("이 실행 환경에 GEMINI_API_KEY가 없어 AI 설명을 쓸 수 없어요.")
+                        out = agent.ask(question, provider, history=history, log=lambda s: status.write(s))
+                        status.update(label="답을 찾았어요", state="complete")
+                    except Exception as e:
+                        del history[before:]
+                        status.update(label="AI 설명은 받지 못했어요", state="error")
+                        print("[AI 실패]", str(e)[:300], flush=True)
+                if out:
+                    tools = [t["tool"] for t in out["trace"]]
+                    kind, rows = collect(out["trace"])
+                    st.session_state.setdefault("tool_nums", set()).update(evaluate.tool_numbers(out["trace"]))
+                    st.session_state.setdefault("main_nums", set()).update(main_salaries(out["trace"]))
+                    unchecked = [a for a, tol in evaluate.amounts_in(out["answer"] or "")
+                                 if not grounded(a, tol, st.session_state["tool_nums"], st.session_state["main_nums"])]
+                    msg = {"role": "assistant", "mode": "ai", "content": out["answer"], "tools": tools,
+                           "kind": kind, "rows": rows, "unchecked": unchecked}
+                else:  # ⑩ AI가 안 되면 질문 속 회사의 데이터만이라도 보여준다
+                    msg = {"role": "assistant", "mode": "ai", "fallback": True, "content": None,
+                           "kind": ("single" if len(quick) == 1 else "compare") if quick else None, "rows": quick}
+                    if not quick:
+                        st.error("AI 서버가 바쁘거나 오늘 무료 사용량을 다 썼어요. 회사 이름만 넣으면 AI 없이 바로 볼 수 있어요.")
+                msgs.append(msg)
+            st.rerun()  # 결과를 위 '최근 결과' 자리에 같은 모양으로 다시 그린다
+
+        for user, answer, i in reversed(pairs):
+            show_pair(user, answer, i)
+
+        st.markdown('<p class="s-caption" style="font-size:11px;margin-top:14px">회사 전체의 평균 추정치예요. '
+                    '신입·직무·개인 연봉과 다르며, 오차 범위도 함께 확인해 주세요.</p>', unsafe_allow_html=True)
+
 
 st.markdown(DATA_BASIS_HTML, unsafe_allow_html=True)
 

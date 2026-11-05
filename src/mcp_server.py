@@ -285,6 +285,8 @@ def _tenure_curve(r):
            "tenure_text": tenure_text,
            "salary_manwon": [_manwon(base * x) for x in ratios],
            "salary_text": [_won_text(base * x) for x in ratios],
+           # '내 연차' 입력용: 0년 차(신입) ~ 20년 차. t년 차는 근속 t+0.5년으로 본다
+           "by_year_manwon": [_manwon(base * _curve_at(w, t + 0.5) / anchor) for t in range(21)],
            "growth_text": f"같은 업종에서 10년 이상 근속자의 임금은 1년 미만의 약 {last / first:.1f}배",
            "dart_compare_text": (None if dart is None else
                                  f"상장사 {dart[1]:,}곳 비교: 평균 근속이 1년 긴 회사는 평균 급여가 "
