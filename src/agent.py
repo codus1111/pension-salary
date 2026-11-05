@@ -107,8 +107,8 @@ def load_env(name):
     for fname in (".env", ".env.txt"):
         p = ROOT / fname
         if p.exists():
-            m = re.search(rf"^\s*{name}\s*=\s*['\"]?([^\s'\"]+)", p.read_text(encoding="utf-8-sig"), re.M)
-            if m:
+            m = re.search(rf"^\s*{name}\s*=\s*['\"]?([^\s'\"#]+)", p.read_text(encoding="utf-8-sig"), re.M)
+            if m and m.group(1) != "여기에_키":  # .env.example을 복사만 하고 안 채운 경우는 없는 것으로 본다
                 return m.group(1)
     sys.exit(f"{name}를 환경 변수나 .env / .env.txt에서 찾지 못했다.")
 

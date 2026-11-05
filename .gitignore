@@ -4,3 +4,4 @@ data/processed/
 .env.txt
 .mcp.json
 __pycache__/
+.venv/

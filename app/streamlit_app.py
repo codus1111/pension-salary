@@ -53,8 +53,8 @@ header[data-testid="stHeader"] {{ background:transparent; }}
   .s-eyebrow {{ font-size:12px !important; }}
   .s-brand {{ font-size:24px !important; }}
   .st-key-hero {{ min-height:480px !important; padding:56px 52px 34px !important; }}
-  .st-key-hero input {{ font-size:17px !important; }}
-  .st-key-hero [data-testid="stFormSubmitButton"] button {{ min-height:52px; }}
+  .st-key-hero input, .st-key-askbox input {{ font-size:17px !important; }}
+  .st-key-hero [data-testid="stFormSubmitButton"] button, .st-key-askbox [data-testid="stFormSubmitButton"] button {{ min-height:52px; }}
   .s-h2 {{ font-size:25px !important; }}
   .s-caption, .s-note {{ font-size:14px !important; }}
   [class*="st-key-sg"] button {{ min-height:118px; }}
@@ -78,15 +78,19 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .s-hero h1 .s-blue {{ color:var(--blue); }}
 .s-hero [data-testid="stHeaderActionElements"] {{ display:none; }}
 .s-desc {{ font-size:14px; line-height:1.85; color:#526a85 !important; margin:0 0 22px; }}
-.st-key-hero [data-testid="stForm"] {{ max-width:680px; background:white; border:1px solid #c4d9f5; border-radius:99px;
+.st-key-hero [data-testid="stForm"], .st-key-askbox [data-testid="stForm"] {{ max-width:680px; background:white; border:1px solid #c4d9f5; border-radius:99px;
                box-shadow:0 8px 28px #447bb91c; padding:6px 6px 6px 18px; }}
-.st-key-hero [data-testid="stForm"] [data-testid="stHorizontalBlock"] {{ align-items:center; gap:6px; }}
-.st-key-hero [data-testid="stTextInputRootElement"], .st-key-hero [data-baseweb="input"] {{ border:0 !important; background:transparent !important; }}
-.st-key-hero input {{ font-size:15px; background:transparent !important; }}
-.st-key-hero [data-testid="stFormSubmitButton"] button {{ background:var(--blue); color:white; border:0; border-radius:99px;
+.st-key-hero [data-testid="stForm"] [data-testid="stHorizontalBlock"], .st-key-askbox [data-testid="stForm"] [data-testid="stHorizontalBlock"] {{ align-items:center; gap:6px; }}
+.st-key-hero [data-testid="stTextInputRootElement"], .st-key-hero [data-baseweb="input"], .st-key-askbox [data-testid="stTextInputRootElement"], .st-key-askbox [data-baseweb="input"] {{ border:0 !important; background:transparent !important; }}
+.st-key-hero input, .st-key-askbox input {{ font-size:15px; background:transparent !important; }}
+.st-key-hero [data-testid="stFormSubmitButton"] button, .st-key-askbox [data-testid="stFormSubmitButton"] button {{ background:var(--blue); color:white; border:0; border-radius:99px;
                min-height:44px; width:100%; font-weight:650; }}
-.st-key-hero [data-testid="stFormSubmitButton"] button:hover {{ background:#0757c8; color:white; }}
+.st-key-hero [data-testid="stFormSubmitButton"] button:hover, .st-key-askbox [data-testid="stFormSubmitButton"] button:hover {{ background:#0757c8; color:white; }}
 .s-note {{ font-size:11px; color:#4f6e91 !important; margin:10px 0 0 18px; }}
+.st-key-askbox [data-testid="stForm"] {{ max-width:none; margin:14px 0 18px; }}
+.s-suggest-title {{ font-size:13px !important; font-weight:650; color:#1766bf !important; margin:6px 0 2px; }}
+.st-key-hero [class*="st-key-sg"] button {{ background:#ffffffcc; border-color:#d8e7f7; min-height:84px; }}
+.st-key-hero [class*="st-key-sg"] button:hover {{ background:white; }}
 .st-key-workspace {{ background:white; border:1px solid var(--line); border-radius:25px; padding:28px 30px;
                     margin-top:22px; box-shadow:0 10px 40px #7c9abb0a; }}
 .st-key-explore {{ background:white; border:1px solid var(--line); border-radius:25px; padding:28px 30px;
@@ -301,11 +305,11 @@ header[data-testid="stHeader"] {{ background:transparent; }}
   .s-cards {{ grid-template-columns:repeat(2,minmax(0,1fr)); }}
   .s-user {{ max-width:88%; }}
   /* 좁은 화면에서도 검색창(입력칸+버튼)과 제목줄(제목+초기화)은 한 줄로 */
-  .st-key-hero [data-testid="stHorizontalBlock"], .st-key-whead [data-testid="stHorizontalBlock"] {{ flex-wrap:nowrap; }}
-  .st-key-hero [data-testid="stColumn"]:first-child, .st-key-whead [data-testid="stColumn"]:first-child {{ flex:1 1 auto; min-width:0; width:auto; }}
-  .st-key-hero [data-testid="stColumn"]:last-child, .st-key-whead [data-testid="stColumn"]:last-child {{ flex:0 0 72px; min-width:72px; width:72px; }}
-  .st-key-hero [data-testid="stForm"] {{ padding:4px 4px 4px 12px; }}
-  .st-key-hero input {{ font-size:16px; }}
+  .st-key-hero [data-testid="stForm"] [data-testid="stHorizontalBlock"], .st-key-askbox [data-testid="stHorizontalBlock"], .st-key-whead [data-testid="stHorizontalBlock"] {{ flex-wrap:nowrap; }}
+  .st-key-hero [data-testid="stForm"] [data-testid="stColumn"]:first-child, .st-key-askbox [data-testid="stColumn"]:first-child, .st-key-whead [data-testid="stColumn"]:first-child {{ flex:1 1 auto; min-width:0; width:auto; }}
+  .st-key-hero [data-testid="stForm"] [data-testid="stColumn"]:last-child, .st-key-askbox [data-testid="stColumn"]:last-child, .st-key-whead [data-testid="stColumn"]:last-child {{ flex:0 0 72px; min-width:72px; width:72px; }}
+  .st-key-hero [data-testid="stForm"], .st-key-askbox [data-testid="stForm"] {{ padding:4px 4px 4px 12px; }}
+  .st-key-hero input, .st-key-askbox input {{ font-size:16px; }}
   [class*="st-key-sg"] button {{ min-height:76px; }}
 }}
 </style>""", unsafe_allow_html=True)
@@ -326,10 +330,20 @@ DATA_BASIS_HTML = ('<div class="s-basis"><b>📅 데이터 기준 날짜</b><tab
 
 
 def secret(name):
+    """배포: Streamlit Secrets → 로컬: 환경 변수 → .env / .env.txt 파일 순서로 찾는다 (어느 PC에서든 같은 방식)."""
     try:
         return st.secrets[name]
-    except Exception:  # secrets 파일이 없을 때 (로컬): 환경 변수나 .env에서 읽는다
-        return os.environ.get(name)
+    except Exception:
+        pass
+    if os.environ.get(name):
+        return os.environ[name]
+    for fname in (".env", ".env.txt"):
+        p = ROOT / fname
+        if p.exists():
+            m = re.search(rf"^\s*{name}\s*=\s*['\"]?([^\s'\"#]*)", p.read_text(encoding="utf-8-sig"), re.M)
+            if m and m.group(1) and m.group(1) != "여기에_키":
+                return m.group(1)
+    return None
 
 
 def nav():
@@ -395,15 +409,40 @@ def code_version():
 # 코드 버전을 캐시 키로 쓰고 바뀌면 모듈을 다시 읽는다. max_entries=1: 옛 데이터를 메모리에 두 벌 두지 않게
 @st.cache_resource(show_spinner="데이터를 불러오는 중이에요 (처음 한 번만, 몇 초 걸려요)", max_entries=1)
 def load_agent(version):
+    import gc
     import importlib
+    if "mcp_server" in sys.modules:  # 옛 데이터를 먼저 놓아줘야 새 데이터와 두 벌이 되지 않는다 (무료 서버 메모리 부족 방지)
+        for attr in ("DATA", "TURNOVER", "HEADCOUNT", "REGION_SITES"):
+            setattr(sys.modules["mcp_server"], attr, None)
+        gc.collect()
     for name in ("brands", "filters", "mcp_server", "agent"):  # 서로 import하는 순서대로
         if name in sys.modules:
             importlib.reload(sys.modules[name])
     import agent  # 51만 개 회사 데이터를 불러온다
-    return agent, agent.GeminiProvider()
+    try:
+        provider = agent.GeminiProvider()
+    except (SystemExit, Exception):  # 키가 없는 PC에서도 '회사 직접 찾기'는 쓸 수 있게, AI만 끈다
+        provider = None
+    return agent, provider
 
 
-agent, provider = load_agent(code_version())
+@st.cache_resource
+def _loaded():
+    """지금 메모리에 올라간 코드 버전 (모든 사용자가 공유)."""
+    return {"version": None}
+
+
+# 코드 버전이 바뀌면 옛 캐시를 먼저 비운 뒤 새로 만든다. 그냥 두면 새 캐시를 만드는 동안 옛 데이터가 남아 메모리가 두 배가 된다
+_version = code_version()
+if _loaded()["version"] not in (None, _version):
+    load_agent.clear()
+_loaded()["version"] = _version
+try:
+    agent, provider = load_agent(_version)
+except Exception as e:  # 서버가 데이터를 못 불러오면 빈 화면 대신 이유와 할 일을 보여준다
+    st.error("데이터를 불러오지 못했어요. 잠시 뒤 새로고침(F5) 해 주세요. 계속되면 아래 내용을 알려주세요.")
+    st.caption(f"{type(e).__name__}: {str(e)[:300]}")
+    st.stop()
 
 
 filters, DATA, REGION = agent.tools.filters, agent.tools.DATA, agent.tools.REGION_SITES  # 에이전트 도구와 같은 표
@@ -581,7 +620,8 @@ def show_answer(text, unchecked=()):
     """
     # 답에 `avg_income_vs_cap_pct` 같은 도구 필드 이름이 섞여 나온 적이 있어서, 백틱 속 영어 변수 이름은 지운다
     text = FIELD_RE.sub("", text or "")
-    safe = BOLD_RE.sub(r"<b>\1</b>", html.escape(text, quote=False))
+    # &와 <만 막는다. >까지 바꾸면 Markdown 인용 상자(> …)가 '&gt;' 글자로 보였다
+    safe = BOLD_RE.sub(r"<b>\1</b>", text.replace("&", "&amp;").replace("<", "&lt;"))
     st.markdown(safe, unsafe_allow_html=True)
     if unchecked:
         shown = ", ".join(f"{a:,}만 원" for a in unchecked[:3])
@@ -683,39 +723,52 @@ if "history" not in st.session_state:
 
 nav()
 question = st.session_state.pop("pending_q", None)  # 아래 '조건으로 찾기'에서 누른 회사 질문
+# 첫 화면: 제목 + 예시 질문. 검색창은 아래 대화 칸 바로 위로 내려서, 검색하면 결과가 검색창 바로 밑에 보이게 했다
 with st.container(key="hero"):
     hero_copy()
-    with st.form("search", border=False, clear_on_submit=True):
-        c1, c2 = st.columns([5, 1])
-        typed = c1.text_input("질문", placeholder="🔍  회사 이름이나 궁금한 내용을 검색하세요", label_visibility="collapsed")
-        if c2.form_submit_button("검색", use_container_width=True) and typed.strip():
-            question = typed.strip()
-    st.markdown('<p class="s-note">국민연금 2026년 9월 자료 · DART 2025 사업연도(2025.1.1~12.31) 공시로 검증</p>',
-                unsafe_allow_html=True)
-
-with st.container(key="workspace"):
-    h1, h2 = st.container(key="whead").columns([5, 1], vertical_alignment="center")
-    h1.markdown('<p class="s-h2">이렇게 검색해 보세요</p>'
-                '<p class="s-caption">평균 연봉부터 회사 비교까지, 궁금한 내용을 자유롭게.</p>', unsafe_allow_html=True)
-    if h2.button("초기화", key="reset", use_container_width=True):
-        st.session_state["history"], st.session_state["messages"] = [], []
-        st.rerun()
+    st.markdown('<p class="s-suggest-title">이렇게 검색해 보세요 · 누르면 바로 물어봐요</p>', unsafe_allow_html=True)
     for i, (col, (_, q)) in enumerate(zip(st.columns(3), SUGGESTIONS)):
         if col.button(q, key=f"sg{i}", use_container_width=True):
             question = q
+    st.markdown('<p class="s-note">국민연금 2026년 9월 자료 · DART 2025 사업연도(2025.1.1~12.31) 공시로 검증</p>',
+                unsafe_allow_html=True)
 
-    for i, m in enumerate(st.session_state["messages"]):
+
+def show_pair(user, answer, i):
+    st.markdown(f'<div class="s-user"><b>나</b>{html.escape(user)}</div>', unsafe_allow_html=True)
+    if answer:
+        with st.container(key=f"answer{i}"):
+            st.markdown('<span class="s-who">회사 연봉 AI</span>', unsafe_allow_html=True)
+            show_answer(answer["content"], answer.get("unchecked", []))
+            show_visuals(answer.get("kind"), answer.get("rows", []))
+            if answer.get("tools"):
+                st.caption("사용한 도구: " + " → ".join(answer["tools"]))
+
+
+with st.container(key="workspace"):
+    h1, h2 = st.container(key="whead").columns([5, 1], vertical_alignment="center")
+    h1.markdown('<p class="s-h2">AI에게 물어보기</p>'
+                '<p class="s-caption">회사 이름이나 궁금한 내용을 적으면, 답이 바로 아래에 나와요.</p>', unsafe_allow_html=True)
+    if h2.button("초기화", key="reset", use_container_width=True):
+        st.session_state["history"], st.session_state["messages"] = [], []
+        st.rerun()
+    with st.container(key="askbox"):
+        with st.form("search", border=False, clear_on_submit=True):
+            c1, c2 = st.columns([5, 1])
+            typed = c1.text_input("질문", placeholder="🔍  회사 이름이나 궁금한 내용을 검색하세요", label_visibility="collapsed")
+            if c2.form_submit_button("검색", use_container_width=True) and typed.strip():
+                question = typed.strip()
+
+    # 이전 대화: (질문, 답) 묶음을 만든 뒤, 새 질문이 검색창 바로 밑에 오도록 최근 것부터 보여준다
+    msgs = st.session_state["messages"]
+    pairs = []
+    for i, m in enumerate(msgs):
         if m["role"] == "user":
-            st.markdown(f'<div class="s-user"><b>나</b>{html.escape(m["content"])}</div>', unsafe_allow_html=True)
-        else:
-            with st.container(key=f"answer{i}"):
-                st.markdown('<span class="s-who">회사 연봉 AI</span>', unsafe_allow_html=True)
-                show_answer(m["content"], m.get("unchecked", []))
-                show_visuals(m.get("kind"), m.get("rows", []))
-                if m.get("tools"):
-                    st.caption("사용한 도구: " + " → ".join(m["tools"]))
+            pairs.append([m["content"], None, i])
+        elif pairs:
+            pairs[-1][1], pairs[-1][2] = m, i
 
-    if question:
+    if question:  # 새 질문을 먼저(검색창 바로 밑에) 그리고, 이전 대화는 그 아래에 그린다
         st.session_state["messages"].append({"role": "user", "content": question})
         st.markdown(f'<div class="s-user"><b>나</b>{html.escape(question)}</div>', unsafe_allow_html=True)
         history = st.session_state["history"]
@@ -724,13 +777,17 @@ with st.container(key="workspace"):
             st.markdown('<span class="s-who">회사 연봉 AI</span>', unsafe_allow_html=True)
             with st.status("데이터를 찾아보는 중이에요…", expanded=False) as status:
                 try:
+                    if provider is None:
+                        raise RuntimeError("이 실행 환경에 GEMINI_API_KEY가 없어 AI 질문을 쓸 수 없어요. "
+                                           "아래 '회사 직접 찾기'는 키 없이 쓸 수 있어요. (키 넣는 법: README의 실행 방법)")
                     out = agent.ask(question, provider, history=history, log=lambda s: status.write(s))
                     status.update(label="답을 찾았어요", state="complete")
                 except Exception as e:
                     del history[before:]
                     status.update(label="답을 받지 못했어요", state="error")
                     out = None
-                    st.error("AI 서버가 바쁘거나 오늘 무료 사용량을 다 썼어요. 잠시 뒤 다시 시도해 주세요.\n\n" + str(e)[:200])
+                    st.error(str(e) if provider is None else
+                             "AI 서버가 바쁘거나 오늘 무료 사용량을 다 썼어요. 잠시 뒤 다시 시도해 주세요.\n\n" + str(e)[:200])
             if out:
                 tools = [t["tool"] for t in out["trace"]]
                 kind, rows = collect(out["trace"])
@@ -745,6 +802,11 @@ with st.container(key="workspace"):
                     st.caption("사용한 도구: " + " → ".join(tools))
                 st.session_state["messages"].append({"role": "assistant", "content": out["answer"], "tools": tools,
                                                      "kind": kind, "rows": rows, "unchecked": unchecked})
+
+    if pairs and question:
+        st.markdown('<p class="s-caption" style="margin:18px 0 6px">이전 대화</p>', unsafe_allow_html=True)
+    for user, answer, i in reversed(pairs):
+        show_pair(user, answer, i)
 
     st.markdown('<p class="s-caption" style="font-size:11px;margin-top:14px">회사 전체의 평균 추정치예요. '
                 '신입·직무·개인 연봉과 다르며, 답변의 오차 범위도 함께 확인해 주세요.</p>', unsafe_allow_html=True)

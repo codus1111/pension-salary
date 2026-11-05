@@ -7,3 +7,10 @@ textColor = "#192c49"
 
 [client]
 toolbarMode = "minimal"
+
+# 처음 실행할 때 이메일을 묻는 질문 때문에 다른 PC에서 실행 스크립트가 멈췄다 → 묻지 않게 (브라우저는 스크립트가 연다)
+[server]
+headless = true
+
+[browser]
+gatherUsageStats = false

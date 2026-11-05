@@ -34,12 +34,24 @@ AXIS = "#c3c2b7"
 BLUE, ORANGE, AQUA = "#2a78d6", "#eb6834", "#1baf7a"
 
 
+# 한글 글꼴 후보: Windows · WSL · macOS · Linux(나눔고딕). 먼저 찾은 것을 쓴다
+KOREAN_FONTS = [
+    ("Malgun Gothic", ["C:/Windows/Fonts/malgun.ttf", "/mnt/c/Windows/Fonts/malgun.ttf"]),
+    ("Apple SD Gothic Neo", ["/System/Library/Fonts/AppleSDGothicNeo.ttc"]),
+    ("NanumGothic", ["/usr/share/fonts/truetype/nanum/NanumGothic.ttf"]),
+]
+
+
 def setup_font():
-    for p in ("/mnt/c/Windows/Fonts/malgun.ttf", "/mnt/c/Windows/Fonts/malgunbd.ttf"):
-        if Path(p).exists():
-            font_manager.fontManager.addfont(p)
+    family = "sans-serif"
+    for name, paths in KOREAN_FONTS:
+        found = [p for p in paths if Path(p).exists()]
+        if found:
+            font_manager.fontManager.addfont(found[0])
+            family = name
+            break
     plt.rcParams.update({
-        "font.family": "Malgun Gothic", "axes.unicode_minus": False,
+        "font.family": family, "axes.unicode_minus": False,
         "figure.facecolor": SURFACE, "axes.facecolor": SURFACE, "savefig.facecolor": SURFACE,
         "axes.edgecolor": AXIS, "axes.labelcolor": INK2, "xtick.color": MUTED, "ytick.color": MUTED,
         "axes.grid": True, "grid.color": GRID, "grid.linewidth": 0.8, "grid.linestyle": "-",

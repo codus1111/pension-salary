@@ -1,3 +1,5 @@
+# 이 파일 하나로 분석·에이전트·웹 화면을 모두 설치한다 (Python 3.12 이상)
+# 웹 배포(Streamlit Cloud)도 이 파일을 쓴다. 예전의 app/requirements.txt는 합쳤다
 google-genai==2.34.0
 matplotlib==3.11.2
 mcp==2.3.0
@@ -5,3 +7,4 @@ numpy==2.5.4
 pandas==3.1.0
 pyarrow==26.0.0
 scikit-learn==1.9.1
+streamlit==1.66.1

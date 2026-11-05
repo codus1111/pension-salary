@@ -327,7 +327,32 @@ python src/compare_monthly.py 2026           # → reports/monthly_aligned.md
 - 브랜드명 사전을 사람 손이 아니라 DART 기업개황·상표 데이터로 넓히기
 
 ## 8. 실행 방법
-**환경**: Windows에서는 스마트 앱 컨트롤이 pandas를 차단해 **WSL Ubuntu 가상환경**에서 실행했다 (Python 3.14).
+### 웹 화면만 바로 띄우기 (다른 PC에서) — 데이터 준비 없이 바로 된다
+웹에 필요한 데이터(`data/app/`, 약 40MB)는 저장소에 들어 있다. **Python 3.12 이상**만 있으면 된다.
+
+| 환경 | 방법 |
+|---|---|
+| **Windows** | `run_app.bat` 더블클릭 |
+| **macOS · Linux · WSL** | `bash run_app.sh` |
+| **Docker** (어디서나 같은 환경) | `docker build -t pension-salary .` → `docker run -p 8501:8501 --env-file .env pension-salary` |
+
+- 처음 한 번은 가상환경(`.venv`)을 만들고 패키지를 설치해서 몇 분 걸린다. 그다음부터는 바로 열린다 → http://localhost:8501
+- `.env`가 없으면 `.env.example`을 복사해 만든다. **AI 질문**을 쓰려면 `.env`의 `GEMINI_API_KEY`를 채운다
+  (무료: https://aistudio.google.com/apikey). **키가 없어도 "회사 직접 찾기"(이름·조건 검색)는 쓸 수 있다**
+- `APP_PASSWORD`를 비워 두면 비밀번호 없이 열린다
+- 패키지는 `requirements.txt` **한 파일**로 분석·에이전트·웹을 모두 설치한다 (웹 배포도 같은 파일)
+
+**다른 PC에서 안 열리던 문제와 대응** (사용자 피드백)
+| 증상 | 원인 | 대응 |
+|---|---|---|
+| 비밀번호를 넣은 뒤 오류·빈 화면 | 비밀번호를 넣으면 51만 곳 데이터를 불러오는데, 새 버전이 배포될 때 옛 데이터와 새 데이터가 잠깐 두 벌이 돼 무료 서버 메모리가 부족해질 수 있었다 (최대 약 730MB) | 업종 묶음 열을 category로 바꿔 약 100MB 절약, 새 버전을 불러오기 전에 옛 데이터를 먼저 비움, 실패하면 "새로고침해 주세요" 안내 |
+| 배포 직후 `KeyError` | 화면 코드는 새것, 캐시에 남은 계산 코드는 옛것 | 코드가 바뀌면 모듈을 다시 읽음 |
+| 처음 열 때 30초~1분 로딩 | 무료 서버가 잠들었다 깨어남 | 정상. 잠시 기다리면 열린다 |
+| 일부 브라우저에서 `Failed to fetch dynamically imported module` | 화면 부품 파일을 늦게 받음 (앱이 깨어나는 중이거나 네트워크 차단) | 그래프·표는 HTML로 직접 그림. 입력 칸에서 나면 새로고침(Ctrl+F5) |
+| 남의 PC에서 받아 실행하면 꺼짐 | AI 키가 없으면 앱이 바로 종료됐다 | 키 없이도 열리고 AI 질문만 안내 문구 |
+
+### 분석을 처음부터 다시 돌리기
+**환경**: 이 프로젝트는 Windows 스마트 앱 컨트롤이 pandas를 차단해 **WSL Ubuntu**에서 만들었다. 다른 PC에서는 그냥 Python 3.12+ 가상환경이면 된다.
 ```
 pip install -r requirements.txt
 ```

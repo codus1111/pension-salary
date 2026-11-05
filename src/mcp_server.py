@@ -30,7 +30,8 @@ import filters  # noqa: E402
 DATA_DIR = Path(os.environ["PENSION_DATA_DIR"]) if os.environ.get("PENSION_DATA_DIR") else (
     ROOT / "data/processed" if (ROOT / "data/processed/serving.parquet").exists() else ROOT / "data/app")
 DATA = pd.read_parquet(DATA_DIR / "serving.parquet")
-DATA["group"] = filters.add_groups(DATA)  # 업종 1,232가지 → 14개 묶음 (소규모 사업장 평균·웹 필터용)
+# 업종 1,232가지 → 14개 묶음 (소규모 사업장 평균·웹 필터용). 글자 열로 두면 51만 줄에 약 115MB라 category로
+DATA["group"] = filters.add_groups(DATA).astype("category")
 # 여러 시·도에 사업장이 있는 회사의 지역별 몫 (src/make_region_data.py). 지역으로 거를 때 그 지역 사업장만 본다
 REGION_SITES = (pd.read_parquet(DATA_DIR / "region_sites.parquet")
                 if (DATA_DIR / "region_sites.parquet").exists() else pd.DataFrame())
