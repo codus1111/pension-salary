@@ -192,6 +192,7 @@ def _dart_tenure_slopes():
 DART_TENURE = _dart_tenure_slopes() if TENURE else {}
 
 
+FOOD_RE = __import__("re").compile("음식|음료|커피|주점|제과|제빵")
 TENURE_MID = [0.5, 2, 4, 7.5, 15]  # 근속 구간 가운데 값 (10년 이상은 15년으로 본다)
 
 
@@ -261,9 +262,12 @@ def _tenure_curve(r):
         if cap is not None and cap < t_co:
             t_co = cap
             tenure_text = f"평균 근속 약 {t_co:.1f}년으로 가정 (최근 몇 년 새 직원이 크게 늘어, 직원 수 추이로 본 최대치)"
-        # 1년 퇴사율이 높으면(스타벅스 44%) 오래 다닌 사람이 적다: 평균 근속 ≈ 1 ÷ 1년 퇴사율 (25% 이상일 때만)
+        # 요식업(카페·음식점 등)은 단기 근로가 많아 오래 다닌 사람이 적다: 평균 근속 ≈ 1 ÷ 1년 퇴사율 (25% 이상일 때만).
+        # 다른 업종은 퇴사율에 계열사 이동이 섞여(토스 57%) 근속을 너무 짧게 잡게 돼 적용하지 않는다.
+        # 스타벅스(에스씨케이컴퍼니)는 '커피 및 차류 도매업'으로 등록돼 있어 업종 이름으로도 찾는다
         key = r["company_key"]
-        if not TURNOVER.empty and key in TURNOVER.index:
+        food = r["group"] == "숙박·음식" or bool(FOOD_RE.search(str(r["intp_nm"] or "")))
+        if food and not TURNOVER.empty and key in TURNOVER.index:
             rate = float(TURNOVER.loc[key, "annual_exit_rate"])
             if rate >= 0.25 and 1 / rate < t_co:
                 t_co = 1 / rate
