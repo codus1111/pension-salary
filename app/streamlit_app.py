@@ -794,7 +794,9 @@ def single_cards(r):
         cards.append(card("실제 공시 연봉", r["dart_actual_salary_text"], "회사가 사업보고서에 공개한 값"))
     cards.append(card("직원 수", f"{r['members']:,}명", r.get("region") or ""))
     if r.get("industry_top_pct"):
-        cards.append(card("같은 업종 안에서", f"상위 {r['industry_top_pct']}%", f"{r['industry_companies']:,}곳 중 연봉 순위"))
+        act = r.get("industry_top_pct_actual")
+        cards.append(card("같은 업종 안에서 (추정 연봉 기준)", f"상위 {r['industry_top_pct']}%",
+                          f"{r['industry_companies']:,}곳 중" + (f" · 실제 공시로 보면 상위 {act}%" if act else " 연봉 순위")))
     # 둘째 줄: 정확도 신호등 · 퇴사율 · 인원 변화
     conf, to = r.get("confidence") or {}, r.get("turnover") or {}
     second = []
@@ -926,7 +928,8 @@ def conclusion(m):
         elif c:
             parts.append(f"가능성 높은 범위 {won(c)} ~ {won(d)} 원")
         if r.get("industry_top_pct"):
-            parts.append(f"같은 업종 상위 {r['industry_top_pct']}%")
+            act = r.get("industry_top_pct_actual")
+            parts.append(f"같은 업종 상위 {act}% (실제 공시 기준)" if act else f"같은 업종 상위 {r['industry_top_pct']}% (추정 기준)")
         if conf:
             parts.append(f"정확도 {conf['light']} {conf['level']}")
         return " · ".join(parts)
@@ -965,7 +968,7 @@ WHY_DIFF = """**추정 연봉과 실제 공시 연봉이 다른 이유**
 1. **보험료 상한** — 국민연금은 월 소득 659만 원(연 7,908만 원)까지만 보험료를 매겨요. 그 이상은 자료에 안 보여서 고연봉자가 많을수록 추정이 낮아요. (보정 모델로 끌어올리지만 다 메우지는 못해요)
 2. **잡히는 소득의 범위** — 국민연금에는 식대 같은 비과세 수당이 빠지고 성과급은 일부만 반영돼요. 사업보고서 평균 급여에는 성과급·상여금이 모두 들어가요.
 3. **시점** — 국민연금 기준 소득은 매년 7월에 전년도 소득으로 정해져요. 성과급을 언제 줬는지에 따라 어긋날 수 있어요.
-4. **세는 사람** — 사업보고서는 임원을 뺀 직원 평균이고, 국민연금은 그 사업장 가입자 전체(중간 입·퇴사자, 지점 포함)예요.
+4. **세는 사람·사업장** — 사업보고서는 임원을 뺀 회사 전체 직원(계약직·중간 입사자 포함) 평균이고, 국민연금은 이 사업장 가입자(임원 포함)예요. 지점·공장을 따로 신고한 회사는 본사만 잡혀서 추정이 더 높게 나오기도 해요.
 
 👉 실제 공시 연봉이 있으면 **그 숫자가 더 정확해요.**"""
 
@@ -978,8 +981,14 @@ def show_visuals(kind, rows, i=0):
         st.markdown(salary_ruler(r), unsafe_allow_html=True)
         if r.get("dart_actual_salary_manwon"):  # 상장사: 추정과 실제 공시가 왜 다른지 (한 줄은 늘 보이고, 자세한 건 눌러서)
             c1, c2 = st.columns([5, 1.3], vertical_alignment="center")
-            c1.markdown('<p class="s-why">💡 추정과 실제 공시가 다른 가장 큰 이유: 국민연금은 월 659만 원(연 7,908만 원)까지만 '
-                        '소득을 잡아서, 고연봉·성과급이 많은 회사일수록 추정이 낮게 나와요.</p>', unsafe_allow_html=True)
+            est, dart = r["estimated_salary_manwon"], r["dart_actual_salary_manwon"]
+            if dart >= est:  # 공시가 더 높다: 보험료 상한 때문에 고연봉·성과급이 덜 잡힘
+                why = ("💡 실제 공시가 더 높은 가장 큰 이유: 국민연금은 월 659만 원(연 7,908만 원)까지만 소득을 잡아서, "
+                       "고연봉·성과급이 많은 회사일수록 추정이 낮게 나와요.")
+            else:  # 추정이 더 높다: 세는 사람·사업장 범위가 다름
+                why = ("💡 추정이 더 높은 가장 큰 이유: 사업보고서는 계약직·중간 입사자까지 넣은 회사 전체 직원 평균이고, "
+                       "국민연금은 이 사업장 가입자(임원 포함, 본사 위주)만 봐서 고연봉자 비중이 더 높게 잡힐 수 있어요.")
+            c1.markdown(f'<p class="s-why">{why}</p>', unsafe_allow_html=True)
             with c2.popover("❓ 왜 다를까요?", use_container_width=True):
                 st.markdown(WHY_DIFF)
         st.markdown(single_cards(r), unsafe_allow_html=True)

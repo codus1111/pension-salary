@@ -371,6 +371,20 @@ def _confidence(r):
     return {"level": "보통", "light": "🟡", "reason": f"비슷한 상장사 검증에서 평균 오차가 {mape:.0%}였어요. 범위를 함께 보세요."}
 
 
+# 업종 안 위치를 실제 공시 연봉으로도 보기 위해, 업종별(직원 10명 이상) 추정 연봉을 정렬해 둔다 (src/serving.py와 같은 기준)
+_PEERS = {k: np.sort(g.to_numpy(dtype=float)) for k, g in
+          DATA[(DATA["members"] >= 10) & DATA["est_corrected"].notna()].groupby("intp_nm")["est_corrected"]}
+
+
+def _actual_top_pct(r):
+    """실제 공시 연봉이 같은 업종 회사들의 (추정) 연봉 사이에서 상위 몇 %인지. 공시가 없으면 None."""
+    arr = _PEERS.get(r["intp_nm"])
+    if pd.isna(r["dart_avg_salary"]) or arr is None or len(arr) < 2:
+        return None
+    above = len(arr) - np.searchsorted(arr, float(r["dart_avg_salary"]), side="right")
+    return max(1, round(above / len(arr) * 100))
+
+
 def _summary(r):
     band = META["intervals"].get(r["interval_key"], {})
     return {
@@ -404,6 +418,8 @@ def _summary(r):
         "industry_position_text": None if pd.isna(r["industry_pct"]) else
             f"같은 업종 {int(r['industry_n']):,}곳 중 연봉 상위 {max(1, round((1 - float(r['industry_pct'])) * 100))}%",
         "industry_companies": None if pd.isna(r["industry_n"]) else int(r["industry_n"]),
+        # 위의 순위는 '추정 연봉' 기준. 상장사는 실제 공시 연봉으로 본 순위도 준다 (추정과 공시가 다르면 순위도 다르다)
+        "industry_top_pct_actual": _actual_top_pct(r),
         "dart_actual_salary_manwon": _manwon(r["dart_avg_salary"]),
         "dart_actual_salary_text": _won_text(r["dart_avg_salary"]),
         "dart_tenure_years": None if pd.isna(r["tenure_years"]) else round(float(r["tenure_years"]), 1),
