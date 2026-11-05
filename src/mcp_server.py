@@ -512,6 +512,23 @@ def suggest_name(query: str) -> str | None:
     return name if top and top[0]["members"] >= 10 else None
 
 
+def suggest_brand(query: str) -> str | None:
+    """잘 알려진 브랜드와 한 글자쯤 다르면 그 브랜드 ('토수' → '토스'). 같은 이름의 작은 회사(토수종합건설)가 있어도 묻는다."""
+    import difflib
+    k = _key(query)
+    if not k or to_legal(query):  # 이미 브랜드명이면 묻지 않는다
+        return None
+    brands = {_jamo(_key(b)): b for b in [*BRANDS, *UNVERIFIED]}
+    best = difflib.get_close_matches(_jamo(k), list(brands), n=1, cutoff=0.7)
+    if not best or best[0] == _jamo(k):
+        return None
+    b = brands[best[0]]
+    # '카카오' → '카카오엔터', '현대' → '현대차'처럼 검색어가 브랜드 이름의 일부면 오타가 아니다. 글자 수도 비슷해야 한다
+    if k in _key(b) or abs(len(_key(b)) - len(k)) > 1:
+        return None
+    return b
+
+
 @mcp.tool()
 def get_salary_estimate(company_key: str, region: str | None = None) -> dict:
     """한 회사의 추정 평균 연봉(만 원), 오차 범위, 월 퇴사율, 업종 내 위치, 주의 사항을 돌려준다.

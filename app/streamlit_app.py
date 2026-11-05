@@ -954,6 +954,16 @@ st.markdown("""<style>
 [class*="st-key-myyear"] { background:white; border:1px dashed #c9d8ea; border-radius:14px; padding:8px 16px 4px; margin:8px 0; }
 .s-cand { font-size:13px !important; margin:0 !important; }
 .s-cand small { color:#8193a8; }
+/* 검색창 예시가 몇 초마다 위로 돌아가며 바뀐다 (칸을 누르거나 글자를 치면 사라진다) */
+.st-key-hero [data-testid="stForm"] [data-testid="stTextInputRootElement"] { position:relative; overflow:hidden; }
+.st-key-hero [data-testid="stForm"] [data-testid="stTextInputRootElement"] input:not(:focus)::placeholder { color:transparent !important; }
+.st-key-hero [data-testid="stForm"] [data-testid="stTextInputRootElement"]::after {
+  content:"🔍  토스"; position:absolute; left:14px; top:50%; transform:translateY(-50%); pointer-events:none;
+  color:#8193a8; font-size:15px; white-space:nowrap; overflow:hidden; max-width:calc(100% - 28px);
+  animation:s-roll 21s ease-in-out infinite; }
+.st-key-hero [data-testid="stForm"] [data-testid="stTextInputRootElement"]:has(input:focus)::after,
+.st-key-hero [data-testid="stForm"] [data-testid="stTextInputRootElement"]:has(input:not(:placeholder-shown))::after { display:none; }
+@keyframes s-roll { 0.00% { content:"🔍  토스"; opacity:0; transform:translateY(55%); } 1.71% { content:"🔍  토스"; opacity:1; transform:translateY(-50%); } 12.14% { content:"🔍  토스"; opacity:1; transform:translateY(-50%); } 14.27% { content:"🔍  토스"; opacity:0; transform:translateY(-150%); } 14.29% { content:"🔍  네이버랑 카카오 비교해줘"; opacity:0; transform:translateY(55%); } 16.00% { content:"🔍  네이버랑 카카오 비교해줘"; opacity:1; transform:translateY(-50%); } 26.43% { content:"🔍  네이버랑 카카오 비교해줘"; opacity:1; transform:translateY(-50%); } 28.56% { content:"🔍  네이버랑 카카오 비교해줘"; opacity:0; transform:translateY(-150%); } 28.57% { content:"🔍  삼성전자 신입 연봉"; opacity:0; transform:translateY(55%); } 30.29% { content:"🔍  삼성전자 신입 연봉"; opacity:1; transform:translateY(-50%); } 40.71% { content:"🔍  삼성전자 신입 연봉"; opacity:1; transform:translateY(-50%); } 42.84% { content:"🔍  삼성전자 신입 연봉"; opacity:0; transform:translateY(-150%); } 42.86% { content:"🔍  스타벅스"; opacity:0; transform:translateY(55%); } 44.57% { content:"🔍  스타벅스"; opacity:1; transform:translateY(-50%); } 55.00% { content:"🔍  스타벅스"; opacity:1; transform:translateY(-50%); } 57.13% { content:"🔍  스타벅스"; opacity:0; transform:translateY(-150%); } 57.14% { content:"🔍  현대자동차 5년 차 연봉"; opacity:0; transform:translateY(55%); } 58.86% { content:"🔍  현대자동차 5년 차 연봉"; opacity:1; transform:translateY(-50%); } 69.29% { content:"🔍  현대자동차 5년 차 연봉"; opacity:1; transform:translateY(-50%); } 71.41% { content:"🔍  현대자동차 5년 차 연봉"; opacity:0; transform:translateY(-150%); } 71.43% { content:"🔍  증권업계 연봉 높은 회사"; opacity:0; transform:translateY(55%); } 73.14% { content:"🔍  증권업계 연봉 높은 회사"; opacity:1; transform:translateY(-50%); } 83.57% { content:"🔍  증권업계 연봉 높은 회사"; opacity:1; transform:translateY(-50%); } 85.70% { content:"🔍  증권업계 연봉 높은 회사"; opacity:0; transform:translateY(-150%); } 85.71% { content:"🔍  배민 1년 퇴사율"; opacity:0; transform:translateY(55%); } 87.43% { content:"🔍  배민 1년 퇴사율"; opacity:1; transform:translateY(-50%); } 97.86% { content:"🔍  배민 1년 퇴사율"; opacity:1; transform:translateY(-50%); } 99.99% { content:"🔍  배민 1년 퇴사율"; opacity:0; transform:translateY(-150%); } }
 @media (min-width:1600px) { .st-key-hero { padding:36px 48px 20px !important; } .s-hero h1 { font-size:46px !important; } }
 @media (max-width:640px) {
   .st-key-hero { padding:22px 16px 14px !important; background-size:100% auto !important; background-position:center bottom !important; }
@@ -975,7 +985,7 @@ with st.container(key="hero"):
     hero_copy()
     with st.form("search", border=False, clear_on_submit=True):
         c1, c2 = st.columns([5, 1])
-        typed = c1.text_input("검색", placeholder="🔍  회사 이름 또는 질문 (예: 토스, 네이버랑 카카오 비교)",
+        typed = c1.text_input("검색", placeholder="회사 이름 또는 궁금한 내용",
                               label_visibility="collapsed")
         if c2.form_submit_button("검색", use_container_width=True) and typed.strip():
             search_q = typed.strip()
@@ -1128,8 +1138,10 @@ def data_message(q, key=None):
         r = agent.tools.get_salary_estimate(key)
         others = [h for h in hits if h["company_key"] != key][:5]
         st.query_params["q"] = search_name(r["name"])  # 주소창 주소가 곧 공유 주소가 되게
+        # '토수'처럼 브랜드명(토스)과 한 글자 다르면, 같은 이름의 회사(토수종합건설)를 보여주면서도 '혹시 토스?'를 묻는다
+        brand = agent.tools.suggest_brand(q) if hasattr(agent.tools, "suggest_brand") else None
         return {"role": "assistant", "mode": "data", "kind": "single", "rows": [r], "candidates": others, "query": q,
-                "note": agent.tools.brand_note(q) if hasattr(agent.tools, "brand_note") else None}
+                "note": agent.tools.brand_note(q) if hasattr(agent.tools, "brand_note") else None, "guess": brand}
     guess = agent.tools.suggest_name(q) if hasattr(agent.tools, "suggest_name") else None
     if not hits:
         print(f"[검색 0건] {q}", flush=True)  # 배포 로그에 쌓아 브랜드명 사전 후보로 쓴다
@@ -1192,6 +1204,9 @@ def render_result(m, user, i):
             if s:
                 st.markdown(small_card(s, f"{tiny['region'] or '전국'} · {g}"), unsafe_allow_html=True)
         return
+    if m.get("guess") and m.get("rows"):
+        st.button(f"🔎 혹시 '{m['guess']}' 찾으셨나요?", key=f"guess{i}",
+                  on_click=lambda g=m["guess"]: st.session_state.update(pending_search=g))
     if m.get("note"):
         st.caption("🔎 " + m["note"])
     if m.get("fallback"):
