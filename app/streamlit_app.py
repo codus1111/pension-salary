@@ -721,6 +721,31 @@ if "history" not in st.session_state:
     st.session_state["history"] = []   # 에이전트가 기억하는 대화 (도구 호출 포함)
     st.session_state["messages"] = []  # 화면에 보이는 대화
 
+# 본 화면은 첫 화면(파란 상자)을 낮게: 들어오자마자 스크롤 없이 아래 검색창까지 보이게 (비밀번호 화면은 그대로 꽉 차게)
+st.markdown("""<style>
+.st-key-hero { min-height:0 !important; padding:28px 38px 16px !important; }
+.s-eyebrow { margin:0 0 10px !important; }
+.s-hero h1 { margin:0 0 8px !important; line-height:1.25 !important; }
+.s-desc { margin:0 0 10px !important; line-height:1.65 !important; }
+.st-key-hero [class*="st-key-sg"] button { min-height:60px !important; padding:9px 14px !important; }
+.st-key-hero [class*="st-key-sg"] button > div { margin-top:15px !important; }
+.st-key-hero [class*="st-key-sg"] button::before { top:8px !important; }
+.st-key-hero .s-note { margin-top:4px !important; }
+.st-key-workspace { margin-top:12px !important; padding-top:18px !important; }
+.st-key-askbox [data-testid="stForm"] { margin:8px 0 14px !important; }
+@media (min-width:1600px) {
+  .st-key-hero { padding:32px 48px 18px !important; }
+  .s-hero h1 { font-size:46px !important; }
+}
+@media (max-width:640px) {
+  .st-key-hero { padding:22px 18px 14px !important; }
+  /* 휴대폰: 예시 카드 위 분류 글씨를 빼고 납작하게 → 첫 화면에 검색창까지 들어오게 */
+  .st-key-hero [class*="st-key-sg"] button { min-height:0 !important; padding:8px 12px !important; }
+  .st-key-hero [class*="st-key-sg"] button::before { display:none; }
+  .st-key-hero [class*="st-key-sg"] button > div { margin-top:0 !important; }
+  .st-key-hero [data-testid="stColumn"] { margin-bottom:-6px; }
+}
+</style>""", unsafe_allow_html=True)
 nav()
 question = st.session_state.pop("pending_q", None)  # 아래 '조건으로 찾기'에서 누른 회사 질문
 # 첫 화면: 제목 + 예시 질문. 검색창은 아래 대화 칸 바로 위로 내려서, 검색하면 결과가 검색창 바로 밑에 보이게 했다
