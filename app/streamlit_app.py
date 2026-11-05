@@ -412,6 +412,7 @@ if password and not st.session_state.get("authed"):
     .st-key-hero .s-eyebrow { font-size:clamp(11px, 0.8vw, 14px) !important; }
     .st-key-hero [data-testid="stForm"] { max-width:760px; }
     .st-key-hero [data-testid="stAlert"] { max-width:760px; margin-top:8px; }
+    [data-stale="true"] [data-testid="stAlert"], [data-stale="true"][data-testid="stAlert"] { display:none !important; }
     .st-key-hero .s-points { display:flex; gap:10px; flex-wrap:wrap; margin:28px 0 0; }
     .st-key-hero .s-points span { background:#ffffffcc; border:1px solid #d8e7f7; border-radius:99px; padding:8px 14px;
                                   font-size:13px; color:#42658a; }
@@ -471,7 +472,7 @@ def load_agent(version):
     return agent, provider
 
 
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def _loaded():
     """지금 메모리에 올라간 코드 버전 (모든 사용자가 공유)."""
     return {"version": None}
@@ -1021,21 +1022,26 @@ EXAMPLES = ["토스", "네이버랑 카카오 비교해줘", "삼성전자 신�
             "증권업계 연봉 높은 회사", "배민 1년 퇴사율"]
 
 
-@st.cache_data(max_entries=1)
+@st.cache_data(max_entries=1, show_spinner=False)  # 'Running search_options(...)' 같은 내부 문구가 화면에 보이지 않게
 def search_options(version):
-    """검색칸 아래 목록 후보: [보이는 이름, 업종·지역·직원 수, 검색할 이름]. 브랜드명(토스 → 비바리퍼블리카) 먼저, 그다음 직원 300명 이상 회사 큰 순."""
-    def info(r):
-        region = r["sido"] if isinstance(r["sido"], str) else "-"
-        return f"{r['group']} · {region} · {int(r['members']):,}명"
-    out, seen = [], set()
+    """검색칸 아래 목록 후보: [보이는 이름, 업종·지역·직원 수, 검색할 이름]. 브랜드명(토스 → 비바리퍼블리카) 먼저, 그다음 직원 300명 이상 회사 큰 순.
+
+    처음엔 브랜드마다 51만 곳을 검색해서(55번) 몇 초 걸렸다. 법인명이 정확히 같은 큰 회사를 표에서 한 번에 찾게 바꿨다.
+    """
+    big = DATA[DATA["members"] >= 30].sort_values("members", ascending=False).drop_duplicates("key_nm")
+    by_key = big.set_index("key_nm")
+    info = lambda r: f"{r['group']} · {r['sido'] if isinstance(r['sido'], str) else '-'} · {int(r['members']):,}명"  # noqa: E731
+    out = []
     for b in agent.tools.BRANDS:
-        hit = agent.tools.search_company(b, limit=1)
-        if hit:
-            r = DATA[DATA["company_key"] == hit[0]["company_key"]].iloc[0]
+        k = agent.tools._key(agent.tools.to_legal(b) or b)
+        if k in by_key.index:
+            r = by_key.loc[k]
             out.append([b, f"{search_name(r['sample_nm'])} · " + info(r), b])
-    big = DATA[DATA["members"] >= 300].sort_values("members", ascending=False)
-    for _, r in big.iterrows():
-        n = search_name(r["sample_nm"])
+    top = big[big["members"] >= 300]
+    names = [search_name(n) for n in top["sample_nm"]]
+    rows = top[["group", "sido", "members"]].to_dict("records")
+    seen = set()
+    for n, r in zip(names, rows):
         if n and n not in seen:
             seen.add(n)
             out.append([n, info(r), n])
