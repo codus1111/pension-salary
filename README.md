@@ -18,6 +18,8 @@
 
 > 이 프로젝트를 처음부터 만든다면 쓸 수 있는 전체 프롬프트: [docs/project_prompt.md](docs/project_prompt.md)
 
+> 에이전트 관제 대시보드 (자동 평가 28문항의 실제 기록): [dashboard/index.html](dashboard/index.html)
+
 ## 목차
 1. [왜 이 프로젝트인가](#1-왜-이-프로젝트인가)
 2. [데이터](#2-데이터)

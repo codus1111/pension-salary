@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>회사 연봉 에이전트 관제실</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<script src="https://cdn.tailwindcss.com/3.4.17"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: { base:"#0a0b12", panel:"#12141f", rim:"#242838", ink:"#e8eaf4", dim:"#8d93ab", violet:"#a78bfa", teal:"#2dd4bf", warn:"#fb7185" },
+  fontFamily: { sans:['"IBM Plex Sans KR"','"Apple SD Gothic Neo"','"Malgun Gothic"','sans-serif'], mono:['"JetBrains Mono"','ui-monospace','monospace'] }
+} } };
+</script>
+<style>
+/* 레이아웃: 왼쪽 레일 + 오른쪽 작업 화면의 관제 콘솔. 보라 = 모델 추론, 청록 = 도구 실행 */
+:root { --base:#0a0b12; --panel:#12141f; --rim:#242838; --ink:#e8eaf4; --dim:#8d93ab; --violet:#a78bfa; --teal:#2dd4bf; color-scheme:dark }
+html, body { height:100% }
+body { background:var(--base); color:var(--ink); }
+.num { font-variant-numeric:tabular-nums }
+button:focus-visible, .node:focus-visible { outline:2px solid var(--teal); outline-offset:2px }
+.tab[aria-current="page"] { background:#1b1e2e; color:var(--ink) }
+.tab[aria-current="page"] svg { color:var(--teal) }
+.node rect { transition:stroke .2s, fill .2s }
+.node.on rect { stroke:var(--teal); fill:#10302f }
+.node.pick rect { stroke:var(--violet) }
+.node { cursor:pointer; outline:none }
+.node text { fill:var(--ink); font-family:"IBM Plex Sans KR","Malgun Gothic",sans-serif }
+.node .r { fill:var(--dim) }
+.edge { fill:none; stroke:#2c3147 }
+.edge.on { stroke:#3f8f8a }
+.pulse { animation:p 1.6s ease-in-out infinite } @keyframes p { 50% { opacity:.35 } }
+@media (prefers-reduced-motion:reduce) { .pulse { animation:none } }
+.bar { position:absolute; top:7px; height:22px; border-radius:5px; min-width:3px }
+.bar.m { background:linear-gradient(90deg,#7c5ce0,var(--violet)) }
+.bar.t { background:linear-gradient(90deg,#14a896,var(--teal)) }
+.scrollx { overflow-x:auto }
+</style>
+
+<div class="flex flex-col md:flex-row min-h-full font-sans">
+  <nav class="md:w-52 shrink-0 border-b md:border-b-0 md:border-r border-rim flex md:flex-col gap-1 py-3 md:py-5" style="padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:12px">
+    <div class="hidden md:block px-2 pb-5"><p class="font-bold text-[15px]">회사 연봉 에이전트</p><p class="text-xs text-dim mt-0.5">관제실</p></div>
+    <button class="tab flex items-center gap-2 px-3 py-2 rounded-md text-sm text-dim hover:text-ink" data-tab="workflows"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><circle cx="4" cy="5" r="2"/><circle cx="20" cy="5" r="2"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="19" r="2"/><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/></svg>Workflows</button>
+    <button class="tab flex items-center gap-2 px-3 py-2 rounded-md text-sm text-dim hover:text-ink" data-tab="traces"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h9M8 12h12M4 18h7"/></svg>Traces</button>
+    <button class="tab flex items-center gap-2 px-3 py-2 rounded-md text-sm text-dim hover:text-ink" data-tab="usage"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16l4-5"/></svg>Usage</button>
+    <p class="hidden md:block mt-auto px-2 text-xs text-dim leading-relaxed">자동 평가 28문항의 실제 기록<br>모델 gemini-3.5-flash-lite<br>2026년 11월 4일 실행</p>
+  </nav>
+
+  <main class="flex-1 min-w-0 flex flex-col gap-4 py-5" style="padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))">
+    <header class="flex flex-wrap items-center gap-x-5 gap-y-1">
+      <h1 id="title" class="text-xl font-bold"></h1>
+      <span class="inline-flex items-center gap-1.5 text-xs text-teal"><i class="pulse w-2 h-2 rounded-full bg-teal"></i>평가 기록 재생 중</span>
+      <span class="text-xs text-dim truncate" id="now"></span>
+    </header>
+
+    <section id="workflows" class="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-4 flex-1 min-h-0">
+      <div class="bg-panel border border-rim rounded-xl p-2 min-w-0 flex items-center scrollx">
+        <svg id="graph" viewBox="0 0 1000 600" class="w-full min-w-[620px] h-auto max-h-[80vh]" role="img" aria-label="웹 화면과 MCP 클라이언트에서 온 질문을 AI 에이전트가 받아 도구 6개와 데이터로 처리하는 연결 그래프"></svg>
+      </div>
+      <div class="flex flex-col gap-4 min-w-0">
+        <div class="bg-panel border border-rim rounded-xl p-4" id="info"></div>
+        <div class="bg-panel border border-rim rounded-xl p-4 flex-1 min-h-[220px]">
+          <p class="text-xs text-dim mb-2">실행 로그 (기록 재생)</p>
+          <ul id="log" class="font-mono text-xs space-y-1.5 leading-snug"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="traces" class="grid lg:grid-cols-[290px_minmax(0,1fr)] gap-4 flex-1 min-h-0" hidden>
+      <div class="bg-panel border border-rim rounded-xl p-2 flex flex-col gap-0.5 max-h-[320px] lg:max-h-[86vh] overflow-y-auto" id="runs"></div>
+      <div class="bg-panel border border-rim rounded-xl p-4 min-w-0">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3">
+          <p class="font-bold" id="runname"></p>
+          <button id="replay" class="ml-auto text-xs border border-rim rounded-md px-3 py-1.5 hover:border-teal">다시 재생</button>
+        </div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-dim mb-3">
+          <span class="inline-flex items-center gap-1.5"><i class="w-3 h-2.5 rounded-sm" style="background:var(--violet)"></i>모델 추론</span>
+          <span class="inline-flex items-center gap-1.5"><i class="w-3 h-2.5 rounded-sm" style="background:var(--teal)"></i>도구 실행</span>
+          <span id="runmeta" class="num"></span>
+        </div>
+        <div class="scrollx"><div class="min-w-[620px]" id="gantt"></div></div>
+        <p class="text-xs text-dim mt-3 leading-relaxed">도구 시간은 측정값이에요. 모델 구간은 전체 시간에서 도구 시간을 뺀 뒤 호출 수로 똑같이 나눈 값이에요.</p>
+      </div>
+    </section>
+
+    <section id="usage" class="grid md:grid-cols-2 xl:grid-cols-3 gap-4" hidden>
+      <div class="bg-panel border border-rim rounded-xl p-5 flex flex-col items-center gap-2">
+        <p class="text-sm text-dim self-start">자동 평가 통과</p>
+        <svg viewBox="0 0 200 200" class="w-44 max-w-full" id="ring1"></svg>
+        <p class="text-sm text-dim" id="ring1cap"></p>
+      </div>
+      <div class="bg-panel border border-rim rounded-xl p-5 flex flex-col gap-4">
+        <p class="text-sm text-dim">한 번에 걸리는 시간, 같은 눈금으로</p>
+        <div id="compare" class="flex flex-col gap-3"></div>
+        <div class="grid grid-cols-2 gap-3 mt-auto" id="stats"></div>
+      </div>
+      <div class="bg-panel border border-rim rounded-xl p-5 flex flex-col items-center gap-2">
+        <p class="text-sm text-dim self-start">전체 시간 중 모델 추론 비중</p>
+        <svg viewBox="0 0 200 200" class="w-44 max-w-full" id="ring2"></svg>
+        <p class="text-sm text-dim" id="ring2cap"></p>
+      </div>
+      <div class="bg-panel border border-rim rounded-xl p-5 xl:col-span-2 min-w-0">
+        <p class="text-sm text-dim mb-3">질문 유형별 평균 토큰</p>
+        <div id="types" class="grid md:grid-cols-2 gap-x-8 gap-y-2.5"></div>
+      </div>
+      <div class="bg-panel border border-rim rounded-xl p-5 min-w-0">
+        <p class="text-sm text-dim mb-3">채점 기준별 통과</p>
+        <div id="crit" class="flex flex-col gap-2"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+/* 자동 평가 기록(reports/eval/gemini-3.5-flash-lite.jsonl)에서 뽑은 실제 값 */
+const DATA = [{"id":"q01","type":"조회","q":"토스 평균 연봉 어느 정도야?","seconds":4.4,"input":6674,"output":427,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"토스"},{"tool":"get_salary_estimate","seconds":0.02,"arg":"비바리퍼블리카"}]},{"id":"q02","type":"조회","q":"네이버 평균 연봉 알려줘","seconds":7.6,"input":7280,"output":641,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"네이버"},{"tool":"get_salary_estimate","seconds":0.03,"arg":"네이버"}]},{"id":"q03","type":"조회","q":"배민 다니면 연봉 얼마 정도 받아?","seconds":6.7,"input":6376,"output":487,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.08,"arg":"우아한형제들"},{"tool":"get_salary_estimate","seconds":0.02,"arg":"우아한형제들"}]},{"id":"q04","type":"조회","q":"엔씨소프트 평균 연봉은?","seconds":12.0,"input":6920,"output":569,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.09,"arg":"엔씨소프트"},{"tool":"get_salary_estimate","seconds":0.02,"arg":"엔씨"}]},{"id":"q05","type":"조회","q":"SK하이닉스 직원들 평균 연봉 얼마야?","seconds":3.8,"input":7627,"output":505,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"에스케이하이닉스"},{"tool":"get_salary_estimate","seconds":0.02,"arg":"에스케이하이닉스"}]},{"id":"q06","type":"조회","q":"삼성전자 평균 연봉 궁금해","seconds":8.4,"input":7329,"output":504,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"삼성전자"},{"tool":"get_salary_estimate","seconds":0.02,"arg":"삼성전자"}]},{"id":"q07","type":"조회","q":"대신정보통신 연봉 수준 알려줘","seconds":5.0,"input":6506,"output":478,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"대신정보통신"},{"tool":"get_salary_estimate","seconds":0.02,"arg":"대신정보통신"}]},{"id":"q08","type":"조회","q":"쿠팡 평균 연봉은 어느 정도야?","seconds":16.8,"input":7302,"output":563,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.08,"arg":"쿠팡"},{"tool":"get_salary_estimate","seconds":0.02,"arg":"쿠팡"}]},{"id":"q09","type":"비교","q":"네이버랑 카카오 연봉 비교해줘","seconds":8.3,"input":9474,"output":767,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"네이버"},{"tool":"search_company","seconds":0.07,"arg":"카카오"},{"tool":"compare_companies","seconds":0.04,"arg":"네이버, 카카오"}]},{"id":"q10","type":"비교","q":"넥슨이랑 크래프톤 중에 어디가 연봉 더 높아?","seconds":11.9,"input":8043,"output":675,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"넥슨코리아"},{"tool":"search_company","seconds":0.06,"arg":"크래프톤"},{"tool":"compare_companies","seconds":0.03,"arg":"넥슨코리아, 크래프톤"}]},{"id":"q11","type":"비교","q":"미래에셋증권, 삼성증권, NH투자증권 연봉 비교해줘","seconds":6.6,"input":9406,"output":851,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"미래에셋증권"},{"tool":"search_company","seconds":0.07,"arg":"삼성증권"},{"tool":"search_company","seconds":0.07,"arg":"NH투자증권"},{"tool":"compare_companies","seconds":0.05,"arg":"미래에셋증권, 삼성증권, 엔에이치투자증권"}]},{"id":"q12","type":"업종","q":"증권업계에서 연봉 높은 회사 어디야?","seconds":4.1,"input":5565,"output":1045,"calls":2,"pass":true,"checks":{"올바른 도구":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"industry_ranking","seconds":0.07,"arg":"100"}]},{"id":"q13","type":"업종","q":"게임 회사 중에 연봉 높은 곳 알려줘","seconds":15.7,"input":40891,"output":923,"calls":7,"pass":false,"checks":{"올바른 회사":true,"숫자 근거":false,"한글 답변":true,"완료":true},"trace":[{"tool":"industry_ranking","seconds":0.06,"arg":"10"},{"tool":"industry_ranking","seconds":0.06,"arg":"응용 소프트웨어 개발 및 공급업"},{"tool":"search_company","seconds":0.07,"arg":"크래프톤"},{"tool":"search_company","seconds":0.08,"arg":"엔씨소프트"},{"tool":"search_company","seconds":0.07,"arg":"넷마블"},{"tool":"compare_companies","seconds":0.09,"arg":"데브캣, 네오플, 넥슨코리아, 크래프톤, 엔"}]},{"id":"q14","type":"방법","q":"이 연봉 추정은 얼마나 정확해?","seconds":10.8,"input":5534,"output":477,"calls":2,"pass":true,"checks":{"올바른 도구":true,"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"method_and_limits","seconds":0.0,"arg":""}]},{"id":"q15","type":"방법","q":"왜 연봉 높은 회사는 낮게 추정돼?","seconds":3.9,"input":5305,"output":318,"calls":2,"pass":true,"checks":{"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"method_and_limits","seconds":0.0,"arg":""}]},{"id":"q16","type":"범위 밖","q":"삼성전자 신입 초봉 얼마야?","seconds":8.2,"input":7335,"output":455,"calls":3,"pass":true,"checks":{"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.08,"arg":"삼성전자"},{"tool":"get_salary_estimate","seconds":0.02,"arg":"삼성전자"}]},{"id":"q17","type":"범위 밖","q":"구글 미국 본사 연봉은 얼마야?","seconds":5.6,"input":1688,"output":93,"calls":1,"pass":true,"checks":{"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[]},{"id":"q18","type":"주의","q":"토스 퇴사율 높은 회사야?","seconds":7.6,"input":6502,"output":405,"calls":3,"pass":true,"checks":{"올바른 회사":true,"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.08,"arg":"비바리퍼블리카"},{"tool":"get_salary_estimate","seconds":0.02,"arg":"비바리퍼블리카"}]},{"id":"q19","type":"범위 밖","q":"내 연봉 협상 어떻게 하면 좋을까?","seconds":1.7,"input":1687,"output":174,"calls":1,"pass":true,"checks":{"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[]},{"id":"q20","type":"비교","q":"토스뱅크랑 카카오뱅크 중에 연봉 어디가 더 많아?","seconds":4.3,"input":8033,"output":547,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"토스뱅크"},{"tool":"search_company","seconds":0.06,"arg":"카카오뱅크"},{"tool":"compare_companies","seconds":0.03,"arg":"토스뱅크, 카카오뱅크"}]},{"id":"q21","type":"조회","q":"현대자동차 어때","seconds":5.4,"input":7287,"output":608,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"현대자동차"},{"tool":"get_salary_estimate","seconds":0.02,"arg":"현대자동차"}]},{"id":"q22","type":"지역","q":"현대제철 충남 사업장 연봉은 어느 정도야?","seconds":4.2,"input":7316,"output":457,"calls":3,"pass":true,"checks":{"올바른 회사":true,"올바른 도구":true,"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"현대제철"},{"tool":"get_salary_estimate","seconds":0.19,"arg":"충청남도"}]},{"id":"q23","type":"지역","q":"삼성전자 부산 연봉 알려줘","seconds":20.0,"input":7398,"output":564,"calls":3,"pass":true,"checks":{"올바른 회사":true,"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"삼성전자"},{"tool":"get_salary_estimate","seconds":0.22,"arg":"삼성전자"}]},{"id":"q24","type":"추천","q":"토스랑 비슷한데 연봉 더 높은 회사 있어?","seconds":8.0,"input":6034,"output":442,"calls":3,"pass":true,"checks":{"올바른 회사":true,"올바른 도구":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.08,"arg":"비바리퍼블리카"},{"tool":"similar_companies","seconds":0.05,"arg":"비바리퍼블리카"}]},{"id":"q25","type":"퇴사율","q":"카카오는 사람들이 많이 그만둬?","seconds":11.2,"input":7278,"output":298,"calls":3,"pass":true,"checks":{"올바른 회사":true,"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"카카오"},{"tool":"get_salary_estimate","seconds":0.02,"arg":"카카오"}]},{"id":"q26","type":"조회","q":"스타벅스 직원 평균 연봉은?","seconds":9.6,"input":6487,"output":377,"calls":3,"pass":true,"checks":{"올바른 회사":true,"오차 범위":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"스타벅스"},{"tool":"get_salary_estimate","seconds":0.02,"arg":"에스씨케이컴퍼니"}]},{"id":"q27","type":"조회","q":"시즈닝게임즈 연봉 알려줘","seconds":8.7,"input":6072,"output":439,"calls":3,"pass":true,"checks":{"올바른 회사":true,"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[{"tool":"search_company","seconds":0.07,"arg":"시즈닝게임즈"},{"tool":"get_salary_estimate","seconds":0.23,"arg":"시즈닝게임즈"}]},{"id":"q28","type":"방법","q":"이 데이터 언제 기준이야?","seconds":8.2,"input":1683,"output":110,"calls":1,"pass":true,"checks":{"꼭 할 말":true,"숫자 근거":true,"한글 답변":true,"완료":true},"trace":[]}];
+const TOOLS = {
+  search_company: ["회사 검색", "브랜드명과 법인명으로 회사 후보를 찾아요", 0],
+  get_salary_estimate: ["연봉 조회", "추정 연봉, 범위, 퇴사율, 연차별 참고 연봉을 돌려줘요", 0],
+  compare_companies: ["회사 비교", "여러 회사의 추정값을 나란히 돌려줘요", 0],
+  industry_ranking: ["업종 순위", "업종 안에서 연봉이 높은 회사를 찾아요", 0],
+  similar_companies: ["비슷한 회사", "규모와 업종이 비슷하고 연봉이 더 높은 곳을 찾아요", 0],
+  method_and_limits: ["방법·한계", "추정 방법과 정확도, 한계를 설명해요", 2],
+};
+const DATASETS = [["회사 추정값", "515,431곳"], ["지역·퇴사·추이", "사업장 단위"], ["검증 결과", "상장사 2,392곳"]];
+
+const $ = (id) => document.getElementById(id), still = matchMedia("(prefers-reduced-motion:reduce)").matches;
+const NS = "http://www.w3.org/2000/svg";
+const el = (p, t, a, x) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (x != null) e.textContent = x; p.appendChild(e); return e; };
+const TITLES = { workflows: "에이전트 연결 그래프", traces: "질문별 작업 타임라인", usage: "효율과 토큰" };
+const n = (v) => Math.round(v).toLocaleString();
+const avg = (a) => a.reduce((s, x) => s + x, 0) / a.length;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const allCalls = DATA.flatMap((q) => q.trace);
+const stat = (t) => { const c = allCalls.filter((x) => x.tool === t); return [c.length, c.length ? avg(c.map((x) => x.seconds)) : 0]; };
+const maxCalls = Math.max(...Object.keys(TOOLS).map((t) => stat(t)[0]));
+
+/* ---- 그래프 ---- */
+const g = $("graph"), nodes = {}, edges = {};
+const curve = (a, b) => { const m = (a[0] + b[0]) / 2; return `M${a[0]} ${a[1]} C${m} ${a[1]} ${m} ${b[1]} ${b[0]} ${b[1]}`; };
+const eg = el(g, "g", {}), pg = el(g, "g", {}), ng = el(g, "g", {});
+const link = (id, a, b, w) => edges[id] = el(eg, "path", { d: curve(a, b), class: "edge", "stroke-width": w || 1.5 });
+function node(id, x, y, w, h, title, sub, info, big) {
+  const G = el(ng, "g", { class: "node", tabindex: 0, role: "button", "aria-label": title });
+  el(G, "rect", { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: 10, fill: big ? "#1e1a38" : "#161927", stroke: big ? "#a78bfa" : "#2f3448", "stroke-width": 1.5 });
+  el(G, "text", { x, y: sub ? y - 3 : y + 6, "text-anchor": "middle", "font-size": big ? 21 : 16, "font-weight": 700 }, title);
+  if (sub) el(G, "text", { x, y: y + 17, "text-anchor": "middle", "font-size": 12.5, class: "r" }, sub);
+  G.onclick = () => pick(id); G.onkeydown = (e) => { if (e.key === "Enter") pick(id); };
+  nodes[id] = { G, info };
+}
+const A = [375, 300], WEB = [105, 220], MCP = [105, 380];
+link("web", WEB, A, 2.5); link("mcp", MCP, A);
+const TY = (i) => 60 + i * 96, DY = [130, 300, 470];
+Object.keys(TOOLS).forEach((t, i) => {
+  const p = [640, TY(i)], [cnt, sec] = stat(t);
+  link(`a-${t}`, A, p, 1 + 3.5 * cnt / maxCalls);
+  link(`d-${t}`, p, [880, DY[TOOLS[t][2]]]);
+  node(t, p[0], p[1], 142, 58, TOOLS[t][0], `${cnt}회 호출`, { name: TOOLS[t][0], role: t, desc: TOOLS[t][1], extra: `평가 28문항에서 ${cnt}회 호출 · 평균 ${sec.toFixed(2)}초` });
+});
+link("d-extra", [640, TY(1)], [880, DY[1]]);
+DATASETS.forEach((d, i) => node(`data${i}`, 880, DY[i], 150, 62, d[0], d[1], { name: d[0], role: "데이터", desc: d[1], extra: "도구가 읽는 자료예요" }));
+node("web", WEB[0], WEB[1], 130, 58, "웹 화면", "Streamlit", { name: "웹 화면", role: "입구", desc: "질문을 받고 답과 숫자 카드를 보여줘요", extra: "yeon-salary-agent.streamlit.app" });
+node("mcp", MCP[0], MCP[1], 130, 58, "MCP 연결", "다른 AI 도구", { name: "MCP 연결", role: "입구", desc: "같은 도구 6개를 다른 AI 앱에서도 쓸 수 있어요", extra: "src/mcp_server.py" });
+node("a", A[0], A[1], 190, 90, "AI 에이전트", "Gemini · 최대 8단계", { name: "AI 에이전트", role: "오케스트레이터", desc: "질문을 읽고 어떤 도구를 쓸지 정한 뒤 결과로 답을 써요", extra: `질문당 평균 모델 호출 ${avg(DATA.map((q) => q.calls)).toFixed(1)}번` }, true);
+function pick(id) {
+  Object.values(nodes).forEach((x) => x.G.classList.remove("pick")); nodes[id].G.classList.add("pick");
+  const i = nodes[id].info;
+  $("info").innerHTML = `<p class="font-mono text-xs text-dim">${i.role}</p><p class="font-bold text-lg mt-0.5">${i.name}</p><p class="text-sm text-dim mt-2 leading-relaxed">${i.desc}</p><p class="text-xs text-teal mt-2 num">${i.extra}</p>`;
+}
+pick("a");
+
+/* 패킷: 기록된 질문을 하나씩 그대로 재생 */
+const packets = el(pg, "g", {});
+let qi = 0, si = 0, seq = [], t0 = 0, dots = [], running = false;
+const DUR = 760;
+function build(q) {
+  const s = [{ e: [["web", 0]], on: "a", msg: `Q ${q.q}`, cls: "text-violet" }];
+  q.trace.forEach((c) => {
+    const d = `data${TOOLS[c.tool] ? TOOLS[c.tool][2] : 0}`;
+    s.push({ e: [[`a-${c.tool}`, 0]], on: c.tool, msg: `${c.tool}(${c.arg}) ${c.seconds.toFixed(2)}초` });
+    s.push({ e: [[`d-${c.tool}`, 0]], on: d, msg: null });
+    s.push({ e: [[`a-${c.tool}`, 1]], on: "a", msg: null });
+  });
+  s.push({ e: [["web", 1]], on: "web", msg: `답변 완료 · ${q.seconds}초 · ${n(q.input + q.output)} 토큰 · ${q.pass ? "통과" : "실패"}`, cls: q.pass ? "text-teal" : "text-warn" });
+  return s;
+}
+function logline(m, cls) {
+  if (!m) return;
+  const li = document.createElement("li"); li.className = cls || ""; li.textContent = m;
+  $("log").prepend(li); while ($("log").children.length > 10) $("log").lastChild.remove();
+}
+function stage() {
+  if (si >= seq.length) { qi = (qi + 1) % DATA.length; seq = build(DATA[qi]); si = 0; }
+  const s = seq[si];
+  $("now").textContent = `${DATA[qi].id} · ${DATA[qi].q}`;
+  packets.innerHTML = ""; Object.values(edges).forEach((p) => p.classList.remove("on")); Object.values(nodes).forEach((x) => x.G.classList.remove("on"));
+  nodes[s.on].G.classList.add("on");
+  dots = s.e.map(([id, rev]) => { edges[id].classList.add("on"); return { p: edges[id], len: edges[id].getTotalLength(), rev, halo: el(packets, "circle", { r: 11, fill: "#2dd4bf", opacity: .22 }), c: el(packets, "circle", { r: 5, fill: "#2dd4bf" }) }; });
+  logline(s.msg, s.cls); t0 = performance.now();
+}
+function frame(now) {
+  if (!running) return;
+  let k = (now - t0) / DUR;
+  if (k >= 1) { si++; stage(); k = 0; }
+  dots.forEach((d) => { const pt = d.p.getPointAtLength((d.rev ? 1 - k : k) * d.len); [d.c, d.halo].forEach((x) => { x.setAttribute("cx", pt.x); x.setAttribute("cy", pt.y); }); });
+  requestAnimationFrame(frame);
+}
+function startFlow() { if (running) return; if (!seq.length) { seq = build(DATA[qi]); si = 0; } stage(); if (still) return; running = true; requestAnimationFrame(frame); }
+
+/* ---- 타임라인 ---- */
+let run = Math.max(0, DATA.findIndex((q) => q.id === "q09")), raf;
+function spans(q) {
+  const out = [], toolSum = q.trace.reduce((s, c) => s + c.seconds, 0), m = Math.max(0, q.seconds - toolSum) / q.calls, gaps = Math.max(1, q.calls - 1);
+  let t = 0, ti = 0;
+  for (let i = 0; i < q.calls; i++) {
+    out.push({ a: `모델 호출 ${i + 1}`, b: i === q.calls - 1 ? "답변 작성" : "도구 선택", s: t, d: m, k: "m" }); t += m;
+    const take = i < q.calls - 1 ? Math.ceil((q.trace.length - ti) / (gaps - i)) : 0;
+    for (let j = 0; j < take && ti < q.trace.length; j++, ti++) { const c = q.trace[ti]; out.push({ a: TOOLS[c.tool] ? TOOLS[c.tool][0] : c.tool, b: c.arg, s: t, d: c.seconds, k: "t" }); t += c.seconds; }
+  }
+  return out;
+}
+DATA.forEach((q, i) => {
+  const b = document.createElement("button"); b.className = "text-left px-3 py-2 rounded-lg hover:bg-[#1b1e2e]"; b.dataset.r = i;
+  b.innerHTML = `<span class="block text-sm leading-snug">${esc(q.q)}</span><span class="block text-xs mt-0.5 num text-dim">${q.id} · ${q.type} · ${q.seconds}초 · <span class="${q.pass ? "text-teal" : "text-warn"}">${q.pass ? "통과" : "실패"}</span></span>`;
+  b.onclick = () => { run = i; drawRun(); }; $("runs").appendChild(b);
+});
+function drawRun() {
+  [...$("runs").children].forEach((b, i) => b.style.background = i === run ? "#1b1e2e" : "");
+  const q = DATA[run], st = spans(q), T = st.reduce((m, x) => Math.max(m, x.s + x.d), 0), step = T > 20 ? 5 : T > 8 ? 2 : 1, max = Math.ceil(T / step) * step;
+  $("runname").textContent = q.q;
+  $("runmeta").textContent = `총 ${q.seconds}초 · 모델 호출 ${q.calls}번 · 도구 ${q.trace.length}번 · 토큰 ${n(q.input + q.output)}`;
+  let h = `<div class="relative h-5 ml-[200px] font-mono text-[11px] text-dim">`;
+  for (let s = 0; s <= max + 1e-6; s += step) h += `<span class="absolute" style="left:${s / max * 100}%;transform:translateX(${s >= max ? "-100%" : s === 0 ? "0" : "-50%"})">${s}초</span>`;
+  h += `</div><div class="relative">`;
+  st.forEach((x) => {
+    const lab = x.d < 10 ? x.d.toFixed(2) : x.d.toFixed(1);
+    h += `<div class="flex items-center h-9 border-t border-rim/60"><div class="w-[200px] shrink-0 pr-3"><p class="text-sm leading-tight truncate">${esc(x.a)}</p><p class="text-[11px] text-dim leading-tight truncate">${esc(x.b)}</p></div>
+      <div class="relative flex-1 h-9"><div class="bar ${x.k}" data-s="${x.s}" data-d="${x.d}" style="left:${x.s / max * 100}%;width:${x.d / max * 100}%"></div>
+      <span class="absolute top-2 font-mono text-[11px] text-dim num" style="${(x.s + x.d) / max > .84 ? `right:${100 - x.s / max * 100 + .8}%` : `left:calc(${(x.s + x.d) / max * 100}% + 8px)`}">${lab}초</span></div></div>`;
+  });
+  h += `<div id="head" class="absolute top-0 bottom-0 w-px bg-teal" style="left:calc(200px + (100% - 200px) * ${T / max})"></div></div>`;
+  $("gantt").innerHTML = h;
+  cancelAnimationFrame(raf);
+  if (still) { $("head").style.display = "none"; return; }
+  const bars = [...$("gantt").querySelectorAll(".bar")], go = performance.now(), L = 2600;
+  (function tick(now) {
+    const p = Math.min(1, (now - go) / L), cur = p * T;
+    bars.forEach((b) => { const s = +b.dataset.s, d = +b.dataset.d; b.style.width = Math.max(0, Math.min(d, cur - s)) / max * 100 + "%"; b.style.opacity = cur >= s ? 1 : 0; });
+    $("head").style.left = `calc(200px + (100% - 200px) * ${cur / max})`;
+    if (p < 1) raf = requestAnimationFrame(tick); else $("head").style.display = "none";
+  })(go);
+}
+$("replay").onclick = drawRun;
+
+/* ---- 효율 ---- */
+function ring(svg, pct, color, big, small) {
+  svg.innerHTML = ""; const R = 82, L = 2 * Math.PI * R;
+  el(svg, "circle", { cx: 100, cy: 100, r: R, fill: "none", stroke: "#242838", "stroke-width": 14 });
+  const a = el(svg, "circle", { cx: 100, cy: 100, r: R, fill: "none", stroke: color, "stroke-width": 14, "stroke-linecap": "round", transform: "rotate(-90 100 100)", "stroke-dasharray": L, "stroke-dashoffset": L * (1 - pct / 100) });
+  el(svg, "text", { x: 100, y: 106, "text-anchor": "middle", fill: "#e8eaf4", "font-size": 34, "font-weight": 700, "font-family": "JetBrains Mono,monospace" }, big);
+  el(svg, "text", { x: 100, y: 130, "text-anchor": "middle", fill: "#8d93ab", "font-size": 13, "font-family": "IBM Plex Sans KR,sans-serif" }, small);
+  if (still) return; const go = performance.now();
+  (function f(now) { const p = Math.min(1, (now - go) / 1000), e = 1 - (1 - p) ** 3; a.setAttribute("stroke-dashoffset", L * (1 - pct / 100 * e)); if (p < 1) requestAnimationFrame(f); })(go);
+}
+const hbar = (w, c, h) => `<div class="${h || "h-2.5"} rounded bg-[#1b1e2e] overflow-hidden"><div class="h-full rounded" style="width:${w}%;min-width:3px;background:${c}"></div></div>`;
+function drawUsage() {
+  const passed = DATA.filter((q) => q.pass).length, secs = avg(DATA.map((q) => q.seconds)), toks = DATA.map((q) => q.input + q.output);
+  const toolTotal = allCalls.reduce((s, c) => s + c.seconds, 0), allSec = DATA.reduce((s, q) => s + q.seconds, 0), toolAvg = avg(allCalls.map((c) => c.seconds));
+  ring($("ring1"), passed / DATA.length * 100, "#2dd4bf", `${passed}/${DATA.length}`, "통과");
+  $("ring1cap").textContent = "실패 1개는 금액을 옮겨 적다 틀린 경우";
+  const mp = (1 - toolTotal / allSec) * 100;
+  ring($("ring2"), mp, "#a78bfa", mp.toFixed(0) + "%", "모델 추론");
+  $("ring2cap").textContent = `도구 실행은 평균 ${toolAvg.toFixed(2)}초로 거의 즉시`;
+  const top = secs;
+  $("compare").innerHTML = [["도구 한 번 (AI 없이 데이터 조회)", toolAvg.toFixed(2) + "초", toolAvg / top * 100, "#2dd4bf"], ["AI 답변 한 번", secs.toFixed(1) + "초", 100, "#a78bfa"]].map(([a, b, w, c]) =>
+    `<div><div class="flex justify-between gap-3 text-sm"><span>${a}</span><span class="font-mono text-dim num">${b}</span></div><div class="mt-1.5">${hbar(w, c, "h-3")}</div></div>`).join("");
+  $("stats").innerHTML = [["질문당 토큰", n(avg(toks))], ["평가 전체 토큰", n(toks.reduce((s, x) => s + x, 0))], ["질문당 모델 호출", avg(DATA.map((q) => q.calls)).toFixed(1) + "번"], ["실행 비용", "무료 API"]].map(([a, b]) =>
+    `<div><p class="text-xs text-dim">${a}</p><p class="font-mono text-lg num">${b}</p></div>`).join("");
+  const types = {}; DATA.forEach((q) => (types[q.type] = types[q.type] || []).push(q.input + q.output));
+  const rows = Object.entries(types).map(([k, v]) => [k, avg(v), v.length]).sort((a, b) => b[1] - a[1]), mx = rows[0][1];
+  $("types").innerHTML = rows.map(([k, v, c]) => `<div class="grid grid-cols-[92px_minmax(0,1fr)_62px] items-center gap-3 text-sm"><span class="truncate">${k} <span class="text-dim text-xs">${c}</span></span>${hbar(v / mx * 100, "#a78bfa")}<span class="font-mono text-xs text-dim text-right num">${n(v)}</span></div>`).join("");
+  const crit = {}; DATA.forEach((q) => { for (const k in q.checks) { crit[k] = crit[k] || [0, 0]; crit[k][1]++; if (q.checks[k]) crit[k][0]++; } });
+  $("crit").innerHTML = Object.entries(crit).map(([k, [a, b]]) => `<div class="grid grid-cols-[84px_minmax(0,1fr)_48px] items-center gap-3 text-sm"><span class="truncate">${k}</span>${hbar(a / b * 100, a === b ? "#2dd4bf" : "#fb7185")}<span class="font-mono text-xs text-dim text-right num">${a}/${b}</span></div>`).join("");
+}
+
+/* ---- 탭 ---- */
+function show(tab) {
+  if (!TITLES[tab]) tab = "workflows";
+  for (const k in TITLES) $(k).hidden = k !== tab;
+  document.querySelectorAll(".tab").forEach((b) => b.dataset.tab === tab ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  $("title").textContent = TITLES[tab];
+  if (tab === "workflows") startFlow(); else { running = false; $("now").textContent = ""; }
+  if (tab === "traces") drawRun();
+  if (tab === "usage") drawUsage();
+}
+document.querySelectorAll(".tab").forEach((b) => b.onclick = () => { location.hash = b.dataset.tab; show(b.dataset.tab); });
+addEventListener("hashchange", () => show(location.hash.slice(1)));
+show(location.hash.slice(1));
+</script>
+
+</body>
+</html>
