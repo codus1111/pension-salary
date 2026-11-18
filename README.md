@@ -284,6 +284,7 @@ python src/compare_monthly.py 2026           # → reports/monthly_aligned.md
 
 **사용성 테스트로 고친 점** (2026-11-18, Microsoft Clarity로 클릭·화면 이동 녹화 + 직접 받은 피드백)
 - 화면에 Clarity 코드를 넣고, 맨 아래에 "클릭과 화면 이동을 Microsoft Clarity로 기록해요" 안내를 붙였다
+
 | 피드백·발견 | 원인 | 고친 방법 |
 |---|---|---|
 | 검색이 한 글자만 된다 | 한글을 조합하는 중에 Enter를 누르면 검색을 보내고 칸을 비운 뒤, 조합 중이던 마지막 글자('토스'의 '스')가 빈칸에 다시 들어와 그 한 글자로 또 검색됨 | 조합이 끝난 뒤(compositionend)에 한 번만 보낸다 (`app/components/searchbox`) |
