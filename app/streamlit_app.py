@@ -1221,17 +1221,14 @@ with st.container(key="hero"):
                     unsafe_allow_html=True)
         # 피드백 '검색했을 때 해당 업종 필터로 맞춰지기': 회사를 찾으면 그 회사 업종을 업종 칸에 미리 넣어 둔다
         # (위젯이 그려지기 전에만 값을 바꿀 수 있어서, 결과를 만든 뒤 다시 그리면서 여기서 넣는다)
-        auto = st.session_state.pop("pending_group", None)
-        if auto:
-            st.session_state["f_groups"] = [auto[0]]
-            st.session_state["auto_group_note"] = auto
-        note = st.session_state.get("auto_group_note")
-        if note and st.session_state.get("f_groups") == [note[0]]:
-            st.markdown(f'<p class="s-auto-g">🔎 방금 찾은 <b>{html.escape(note[1])}</b>의 업종 <b>{html.escape(note[0])}</b>(으)로 맞춰 뒀어요. '
-                        '[이 조건으로 찾기]를 누르면 같은 업종 회사를 연봉 순으로 볼 수 있어요.</p>', unsafe_allow_html=True)
+        # 폼 안의 칸은 브라우저가 값을 따로 들고 있다가 다음 검색 때 빈 값을 다시 보내서, session_state로 넣은 업종이 지워졌다.
+        # 그래서 검색할 때마다 칸 이름(key)을 바꿔 새 칸으로 그리고, 찾은 회사 업종을 처음 값(default)으로 넣는다
+        auto = st.session_state.get("auto_group")  # (업종, 회사 이름, 번호)
+        note_box = st.empty()
         with st.form("filters", border=False):
             f1, f2 = st.columns(2)
-            groups = f1.multiselect("업종", filters.GROUP_NAMES, placeholder="전체 업종", key="f_groups")
+            groups = f1.multiselect("업종", filters.GROUP_NAMES, placeholder="전체 업종",
+                                    default=[auto[0]] if auto else None, key=f"f_groups{auto[2] if auto else 0}")
             regions = f2.multiselect("지역", sorted(DATA["sido"].dropna().unique()), placeholder="전체 지역",
                                      help="그 지역에 있는 사업장 기준이에요. 여러 지역에 사업장이 있는 회사는 그 지역 몫만 계산해요. "
                                           "전국 직원을 본사 한 곳으로 신고한 회사(삼성전자 등)는 본사 지역에만 나와요.")
@@ -1245,6 +1242,10 @@ with st.container(key="hero"):
                                                  "직원 100명 이상만 보고, 사람이 계속 바뀌는 곳(1년 퇴사율 60% 넘음, 청소·경비·공사업 등)은 뺐어요")
             growing = f6.checkbox("직원이 늘고 있는 회사만", help="이번 달 입사자가 퇴사자보다 많은 회사")
             listed = f7.checkbox("상장사만", help="실제 공시 연봉과 같이 볼 수 있어요")
+            if auto and groups == [auto[0]]:
+                note_box.markdown(f'<p class="s-auto-g">🔎 방금 찾은 <b>{html.escape(auto[1])}</b>의 업종 <b>{html.escape(auto[0])}</b>(으)로 '
+                                  '맞춰 뒀어요. [이 조건으로 찾기]를 누르면 같은 업종 회사를 연봉 순으로 볼 수 있어요.</p>',
+                                  unsafe_allow_html=True)
             if st.form_submit_button("이 조건으로 찾기", use_container_width=True):
                 st.session_state["pending_filter"] = dict(groups=groups, regions=regions, size=size, salary=salary,
                                                           hiring=hiring, growing=growing, listed=listed)
@@ -1526,8 +1527,9 @@ if new_msg:
         r0 = new_msg["rows"][0]
         g = DATA.loc[DATA["company_key"] == r0.get("company_key"), "group"]
         g = g.iloc[0] if len(g) else None
-        if g in filters.GROUP_NAMES and st.session_state.get("f_groups") != [g]:
-            st.session_state["pending_group"] = (g, new_msg.get("brand") or r0["name"])
+        if g in filters.GROUP_NAMES:
+            old = st.session_state.get("auto_group")
+            st.session_state["auto_group"] = (g, new_msg.get("brand") or r0["name"], (old[2] + 1) if old else 1)
             st.rerun()  # 필터 칸은 이미 그려져서, 결과는 그대로 두고 한 번 더 그리며 업종을 넣는다
 pairs = []
 for i, m in enumerate(msgs):
@@ -1555,6 +1557,7 @@ if question or pairs:
         if h2.button("초기화", key="reset", use_container_width=True):
             st.session_state["history"], st.session_state["messages"] = [], []
             st.query_params.clear()
+            st.session_state.pop("auto_group", None)  # 초기화하면 업종 칸도 '전체 업종'으로
             st.rerun()
 
         if question:  # AI 질문: ② 질문 속 회사의 데이터 결론부터 바로 보여주고, AI 설명은 이어서
