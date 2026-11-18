@@ -152,7 +152,7 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 
 .tr-bar em {{ font-style:normal; font-size:11px; color:#3a5170; margin-top:4px; }}
 .tr-bar i {{ font-style:normal; font-size:10px; color:#8193a8; }}
-/* 색 규칙: 파랑 = 국민연금으로 추정한 값 · 주황 = 사업보고서 실제 공시 · 회청색 = 정부 통계로 만든 참고값(검증 안 됨) */
+/* 색 규칙: 파랑 = 국민연금으로 추정한 값 · 주황 = 사업보고서 실제 공시 · 회청색 = 정부 통계로 만든 참고값(검증 안 됨), 연차별 연봉 큰 그래프만 보라로 강조 */
 :root {{ --teal:#8e9bb0; --teal-l:#c3ccd9; --teal-bg:#f6f8fb; --pink:#FF9EB5; --pink-t:#E0517A; }}
 .tr.ref {{ background:var(--teal-bg); border:1px dashed #c9d3e0; }}
 .tr.ref .tr-bar span {{ background:linear-gradient(180deg,var(--teal-l),var(--teal)); }}
@@ -212,6 +212,17 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .tr-big {{ border:2px solid #b8c4d6 !important; box-shadow:0 6px 22px #447bb91a; }}
 .tr-big .tr-bars {{ height:230px; }}
 .tr-big .tr-bar b {{ font-size:14px; }}
+/* 피드백 '연차별 연봉을 색을 다르게 해서 눈에 띄게': 다른 파랑 그래프와 구분되는 보라로 강조 (참고값 표시는 그대로) */
+.tr.ref.tr-big {{ background:linear-gradient(180deg,#f5f0ff,#ffffff 70%) !important; border:2px solid #a78bfa !important;
+                 box-shadow:0 8px 26px #7c3aed22 !important; }}
+.tr.ref.tr-big .tr-bar span {{ background:linear-gradient(180deg,#c4b5fd,#7c3aed) !important; }}
+.tr.ref.tr-big .tr-bar b {{ color:#4c1d95; }}
+.tr.ref.tr-big .tr-bar:first-child b, .tr.ref.tr-big .tr-bar:last-child b {{ color:#6d28d9; font-weight:800; }}
+.tr.ref.tr-big p.ch-h {{ color:#4c1d95 !important; }}
+.tr.ref.tr-big p.ch-how {{ background:#ede5ff; }}
+.tr.ref.tr-big p.ch-how b {{ color:#6d28d9; }}
+.tr.ref.tr-big > small b.up {{ color:#6d28d9; }}
+.s-key .k-violet {{ background:#7c3aed; }}
 .hc .hc-bars {{ height:130px; }}
 .hc .hc-bar em {{ font-size:12px; }}
 .hc small {{ font-size:12px !important; }}
@@ -887,13 +898,13 @@ def tenure_chart(tc):
         f'<b>{won(v)}</b><span style="height:{v / hi * 100:.0f}%"></span><em>{html.escape(lab.split(" (")[0])}</em>'
         f'<i>{x:.0%}</i></div>'
         for lab, v, x in zip(tc["buckets"], vals, tc["ratio_to_average"]))
-    head = (f'<small>연차별 참고 연봉 (신입 → 10년 이상) <span class="s-key"><i class="k-teal"></i>회청색 = 정부 통계로 만든 참고값</span> · '
+    head = (f'<small>연차별 참고 연봉 (신입 → 10년 이상) <span class="s-key"><i class="k-violet"></i>보라 = 정부 통계로 만든 참고값</span> · '
             f'신입 약 <b class="up">{won(vals[0])} 원</b> · '
             f'{html.escape(tc["growth_text"])}</small>')
     dart = f'<p>{html.escape(tc["dart_compare_text"])}</p>' if tc.get("dart_compare_text") else ""
     title = chart_head(f"💰 연차별 연봉 (참고) · 신입 약 {won(vals[0])} 원 → {html.escape(tc['buckets'][-1].split(' (')[0])} 약 {won(vals[-1])} 원",
                        "막대 하나가 연차 구간이에요. 오른쪽으로 갈수록 오래 다닌 사람이고, 막대 위 숫자가 그 연차의 참고 연봉이에요. "
-                       "회청색은 정부 통계로 만든 참고값이라 실제와 다를 수 있어요.")
+                       "정부 통계로 만든 참고값이라 실제와 다를 수 있어요.")
     return (f'<div class="tr ref tr-big">{title}{head}<div class="tr-bars">{bars}</div>'
             f'<p class="tr-basis">막대 아래 %는 회사 평균 대비 · 기준 {html.escape(tc["base_text"])} · '
             f'{html.escape(tc.get("tenure_text", ""))} · '
@@ -1122,9 +1133,9 @@ st.markdown("""<style>
 .s-ai-note { font-size:12px !important; color:#8193a8 !important; margin:4px 0 8px !important; }
 .s-why { font-size:12.5px !important; color:#3a5170 !important; margin:0 !important; line-height:1.6; }
 .s-myyear { font-size:14px !important; margin:0 !important; line-height:1.6; }
-.s-myyear b { color:#56657c; font-size:17px; }
+.s-myyear b { color:#6d28d9; font-size:18px; }
 .s-myyear span { font-size:11.5px; color:#8193a8; }
-[class*="st-key-myyear"] { background:#f6f8fb; border:1px dashed #c9d3e0; border-radius:14px; padding:8px 16px 4px; margin:8px 0; }
+[class*="st-key-myyear"] { background:#f5f0ff; border:1.5px solid #c4b5fd; border-radius:14px; padding:8px 16px 4px; margin:8px 0; }
 .s-cand { font-size:13px !important; margin:0 !important; }
 .s-cand small { color:#8193a8; }
 /* 검색창 예시가 몇 초마다 위로 돌아가며 바뀐다 (칸을 누르면 사라진다) */
