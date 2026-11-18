@@ -1132,10 +1132,11 @@ st.markdown("""<style>
 .s-detail-h { font-size:12px !important; font-weight:700; color:#4572a9 !important; letter-spacing:.5px; margin:12px 0 2px !important; }
 .s-ai-note { font-size:12px !important; color:#8193a8 !important; margin:4px 0 8px !important; }
 .s-why { font-size:12.5px !important; color:#3a5170 !important; margin:0 !important; line-height:1.6; }
-.s-myyear { font-size:14px !important; margin:0 !important; line-height:1.6; }
+.s-myyear { font-size:14px !important; margin:0 0 16px !important; line-height:1.6; }
+/* Streamlit 글 상자가 아래로 -16px 당겨서, 여백 0인 이 글의 마지막 줄이 보라 칸 밖으로 삐져나왔다 → 아래 여백 16px로 되돌림 */
 .s-myyear b { color:#6d28d9; font-size:18px; }
 .s-myyear span { font-size:11.5px; color:#8193a8; }
-[class*="st-key-myyear"] { background:#f5f0ff; border:1.5px solid #c4b5fd; border-radius:14px; padding:8px 16px 4px; margin:8px 0; }
+[class*="st-key-myyear"] { background:#f5f0ff; border:1.5px solid #c4b5fd; border-radius:14px; padding:8px 16px 8px; margin:8px 0; }
 .s-cand { font-size:13px !important; margin:0 !important; }
 .s-cand small { color:#8193a8; }
 /* 검색창 예시가 몇 초마다 위로 돌아가며 바뀐다 (칸을 누르면 사라진다) */
