@@ -1093,6 +1093,16 @@ st.markdown("""<style>
 .s-auto-g { font-size:12.5px !important; color:#24456c !important; background:#eef5ff; border:1px solid #cfe1f8;
             border-radius:10px; padding:6px 10px; margin:2px 0 6px !important; line-height:1.6; }
 .s-auto-g b { color:#0757c8; }
+/* 폰: 위의 옛 검색폼 규칙(마지막 칸 72px·줄바꿈 금지)이 조건 필터에도 걸려 지역·연봉·상장사만 칸이 찌그러졌다 → 필터는 한 줄에 하나씩 */
+@media (max-width:640px) {
+  .st-key-filterbox { padding:10px 12px 8px !important; }
+  .st-key-filterbox [data-testid="stForm"] [data-testid="stHorizontalBlock"] { flex-wrap:wrap !important; gap:0 !important; }
+  .st-key-filterbox [data-testid="stForm"] [data-testid="stColumn"],
+  .st-key-filterbox [data-testid="stForm"] [data-testid="stColumn"]:first-child,
+  .st-key-filterbox [data-testid="stForm"] [data-testid="stColumn"]:last-child { flex:1 1 100% !important; width:100% !important;
+      min-width:100% !important; margin-bottom:0 !important; }
+  .st-key-filterbox [data-testid="stCheckbox"] { margin:2px 0; }
+}
 .s-filter-h { font-size:13px !important; font-weight:650; color:#24456c !important; margin:0 0 4px !important; }
 .st-key-filterbox [data-testid="stForm"] { max-width:none; border:0; border-radius:14px; box-shadow:none;
                background:transparent; padding:4px 2px; }
