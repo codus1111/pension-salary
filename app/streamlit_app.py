@@ -23,6 +23,20 @@ GITHUB = "https://github.com/codus1111/pension-salary"
 
 st.set_page_config(page_title="회사 연봉 AI", page_icon=str(ROOT / "app" / "static" / "favicon.png"), layout="wide", initial_sidebar_state="collapsed")
 
+# 사용성 테스트 녹화 (Microsoft Clarity). st.components.v1.html은 iframe 안에서 돌아서,
+# 같은 출처인 바깥 화면(window.parent)에 Clarity 코드를 한 번만 넣는다
+CLARITY_ID = "zfbnckbfsq"
+import streamlit.components.v1 as _components  # noqa: E402
+_components.html(
+    "<script>(function(){var w=window.parent,d;try{d=w.document;}catch(e){return;}"
+    "if(d.getElementById('ms-clarity'))return;"
+    "(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};"
+    "t=l.createElement(r);t.async=1;t.id='ms-clarity';t.src='https://www.clarity.ms/tag/'+i;"
+    "y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(w,d,'clarity','script','" + CLARITY_ID + "');"
+    "})();</script>",
+    height=0,
+)
+
 HERO = base64.b64encode((ROOT / "app" / "static" / "hero.webp").read_bytes()).decode()
 LOGO = base64.b64encode((ROOT / "app" / "static" / "favicon.png").read_bytes()).decode()  # 탭 아이콘과 같은 파란 구슬 ₩
 SUGGESTIONS = [
@@ -1544,3 +1558,5 @@ with st.expander("이 데이터는 어떻게 해석하면 되나요?"):
 st.markdown(f'<div class="s-foot"><span><b>회사 연봉 AI</b> · 만든 사람 김채연</span>'
             f'<span><a href="{GITHUB}" target="_blank">GitHub에서 코드와 검증 결과 보기</a> · '
             '데이터를 이해하고, 더 나은 선택을.</span></div>', unsafe_allow_html=True)
+st.markdown('<p class="s-caption" style="font-size:11px;text-align:center;margin-top:10px">'
+            '이 화면은 사용성 개선을 위해 클릭과 화면 이동을 Microsoft Clarity로 기록해요.</p>', unsafe_allow_html=True)
