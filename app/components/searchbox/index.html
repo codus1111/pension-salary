@@ -63,6 +63,7 @@
     text = (text || "").trim();
     if (!text) return;
     send("streamlit:setComponentValue", {value: {q: text, key: key || null, t: Date.now()}, dataType: "json"});
+    if (composing) clearAfterCompose = true;  // 목록을 누른 순간 조합 중이던 글자가 칸에 다시 남지 않게
     q.value = ""; render(); q.blur();
   };
   const q = document.getElementById("q"), sug = document.getElementById("sug"), roll = document.getElementById("roll");
@@ -104,11 +105,27 @@
     const c = e.target.closest(".row");
     if (c) { e.preventDefault(); const o = shown[+c.dataset.i]; +c.dataset.i < 0 ? submit(q.value) : submit(o[2], o[3]); }
   });
+  // 한글은 글자를 '조합하는 중'에 Enter를 누르면, 검색을 보내고 칸을 비운 뒤 조합 중이던 마지막 글자('토스'의 '스')가
+  // 빈 칸에 다시 들어와 그 한 글자로 또 검색되던 오류가 있었다. 조합이 끝난 뒤에 보내고, 그 사이 들어온 글자는 지운다
+  let composing = false, enterAfterCompose = false, clearAfterCompose = false;
+  q.addEventListener("compositionstart", () => { composing = true; });
+  q.addEventListener("compositionend", () => {
+    composing = false;
+    setTimeout(() => {
+      if (clearAfterCompose) { clearAfterCompose = false; q.value = ""; render(); return; }
+      if (enterAfterCompose) { enterAfterCompose = false; doEnter(); }
+    }, 0);
+  });
+  const doEnter = () => { active >= 0 ? submit(shown[active][2], shown[active][3]) : submit(q.value); };
   q.addEventListener("input", render);
   q.addEventListener("focus", render);
   q.addEventListener("blur", () => setTimeout(render, 0));
   q.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") { e.preventDefault(); active >= 0 ? submit(shown[active][2], shown[active][3]) : submit(q.value); }
+    if (e.key === "Enter" || e.keyCode === 229 && e.code === "Enter") {
+      e.preventDefault();
+      if (e.isComposing || composing) { enterAfterCompose = true; return; }  // 조합이 끝나면(compositionend) 보낸다
+      doEnter();
+    }
     else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && shown.length) {
       e.preventDefault();
       active = (active + (e.key === "ArrowDown" ? 1 : -1) + shown.length) % shown.length;

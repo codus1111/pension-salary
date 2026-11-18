@@ -198,6 +198,25 @@ header[data-testid="stHeader"] {{ background:transparent; }}
 .hc-bar span {{ display:block; background:#8dbaf5; border-radius:4px 4px 0 0; min-height:3px; }}
 .hc-bar:hover span {{ background:#0868ec; }}
 .hc-bar em {{ font-style:normal; font-size:10px; color:#8193a8; text-align:center; margin-top:3px; }}
+/* 그래프 제목과 '읽는 법' (피드백: 아래쪽 그래프가 눈에 잘 안 들어온다 → 제목·설명을 붙이고 크게) */
+.ch-h, .tr p.ch-h, .hc p.ch-h {{ font-size:18px !important; font-weight:800; color:var(--ink) !important; margin:2px 0 4px !important; letter-spacing:-.3px; }}
+.ch-how, .tr p.ch-how, .hc p.ch-how {{ font-size:13px !important; color:#3a5170 !important; background:#f2f7ff; border-radius:10px; padding:7px 10px;
+           margin:0 0 8px !important; line-height:1.6; }}
+.ch-how b {{ color:#0757c8; margin-right:4px; }}
+.tr, .hc {{ padding:16px 18px 12px !important; margin:14px 0 6px !important; }}
+.tr .tr-bars {{ height:200px; }}
+.tr .tr-bar b {{ font-size:12.5px; }}
+.tr .tr-bar em {{ font-size:12.5px; }}
+.tr .tr-bar i {{ font-size:11.5px; }}
+.tr .tr-bar span {{ max-width:60px; }}
+.tr-big {{ border:2px solid #b8c4d6 !important; box-shadow:0 6px 22px #447bb91a; }}
+.tr-big .tr-bars {{ height:230px; }}
+.tr-big .tr-bar b {{ font-size:14px; }}
+.hc .hc-bars {{ height:130px; }}
+.hc .hc-bar em {{ font-size:12px; }}
+.hc small {{ font-size:12px !important; }}
+@media (max-width:640px) {{ .tr .tr-bars {{ height:170px; }} .tr-big .tr-bars {{ height:190px; }}
+  .tr .tr-bar b, .tr-big .tr-bar b {{ font-size:10.5px; }} .tr .tr-bar em {{ font-size:11px; }} .ch-h, .tr p.ch-h, .hc p.ch-h {{ font-size:16px !important; }} }}
 /* HTML 범위 그래프 */
 .rc {{ margin:12px 0 4px; }}
 .rc-row {{ display:grid; grid-template-columns:minmax(90px,190px) 1fr 64px; gap:12px; align-items:center; min-height:34px; }}
@@ -802,7 +821,7 @@ def card(label, value, sub="", main=False, ref=False):
             f'{f"<em>{html.escape(sub)}</em>" if sub else ""}</div>')
 
 
-def single_cards(r):
+def single_cards(r, part="all"):
     # 범위는 위의 눈금자(salary_ruler)가 크게 보여주므로 카드에서는 뺀다
     cards = [card("추정 평균 연봉", r["estimated_salary_text"], "국민연금으로 계산한 회사 전체 평균", main=True)]
     sh = r.get("shrunk_estimate")
@@ -839,16 +858,24 @@ def single_cards(r):
                            "이번 달 이동이 유난히 많음 (개편 등)" if to.get("unusual_month") else
                            f"업종 중간값 {med}%" if med is not None else "직원이 적어 참고만"))
         second.append(card("이번 달 인원 변화", f"{to['net_change']:+,}명", f"입사 {to['hires']:,} · 퇴사 {to['exits']:,}"))
-    out = '<div class="s-cards">' + "".join(cards) + "</div>"
-    if second:
-        out += f'<div class="s-cards s-cards{len(second)}">' + "".join(second) + "</div>"
-    if r.get("tenure_curve"):
-        out += tenure_chart(r["tenure_curve"])
+    top = '<div class="s-cards">' + "".join(cards) + "</div>"
+    rest = f'<div class="s-cards s-cards{len(second)}">' + "".join(second) + "</div>" if second else ""
+    # 피드백 '아래쪽 그래프가 눈에 안 들어온다': 연차별 연봉은 첫 카드 줄 바로 밑으로 올리고(show_visuals),
+    # 나머지 그래프에는 제목과 '읽는 법' 한 줄을 붙이고 크게 그린다
     if r.get("salary_trend"):
-        out += trend_chart(r["salary_trend"])
+        rest += trend_chart(r["salary_trend"])
     if year and year.get("monthly_members"):
-        out += headcount_chart(year["monthly_members"])
-    return out  # 바로 가기 버튼(홈페이지·채용공고·리뷰)은 맨 아래에 묻혀 찾기 어려워서 결론 바로 밑으로 옮겼다 (render_result)
+        rest += headcount_chart(year["monthly_members"])
+    if part == "top":
+        return top
+    if part == "rest":
+        return rest
+    return top + rest  # 바로 가기 버튼(홈페이지·채용공고·리뷰)은 맨 아래에 묻혀 찾기 어려워서 결론 바로 밑으로 옮겼다 (render_result)
+
+
+def chart_head(title, how):
+    """그래프 위 큰 제목 + '읽는 법' 한 줄."""
+    return f'<p class="ch-h">{title}</p><p class="ch-how"><b>읽는 법</b> {how}</p>'
 
 
 def tenure_chart(tc):
@@ -864,7 +891,10 @@ def tenure_chart(tc):
             f'신입 약 <b class="up">{won(vals[0])} 원</b> · '
             f'{html.escape(tc["growth_text"])}</small>')
     dart = f'<p>{html.escape(tc["dart_compare_text"])}</p>' if tc.get("dart_compare_text") else ""
-    return (f'<div class="tr ref">{head}<div class="tr-bars">{bars}</div>'
+    title = chart_head(f"💰 연차별 연봉 (참고) · 신입 약 {won(vals[0])} 원 → {html.escape(tc['buckets'][-1].split(' (')[0])} 약 {won(vals[-1])} 원",
+                       "막대 하나가 연차 구간이에요. 오른쪽으로 갈수록 오래 다닌 사람이고, 막대 위 숫자가 그 연차의 참고 연봉이에요. "
+                       "회청색은 정부 통계로 만든 참고값이라 실제와 다를 수 있어요.")
+    return (f'<div class="tr ref tr-big">{title}{head}<div class="tr-bars">{bars}</div>'
             f'<p class="tr-basis">막대 아래 %는 회사 평균 대비 · 기준 {html.escape(tc["base_text"])} · '
             f'{html.escape(tc.get("tenure_text", ""))} · '
             f'정부 통계 업종: {html.escape(tc["industry_basis"])} · {html.escape(tc["basis"])}</p>'
@@ -889,7 +919,10 @@ def trend_chart(tr):
             if g is None else f'<small>회사 평균 연봉 변화 (연도별) {key} · 연평균 <b class="{"up" if g >= 0 else "down"}">{g:+.1f}%</b> · '
                                 f'{html.escape(tr["change_text"].split(" (")[0])}</small>')
     notes = "".join(f"<p>{html.escape(n)}</p>" for n in tr.get("notes", []))
-    return (f'<div class="tr">{head}<div class="tr-bars">{bars}</div>'
+    title = chart_head(f"📈 회사 평균 연봉, 해마다 어떻게 변했나 ({tr['years'][0]}~{tr['years'][-1]}년)",
+                       "막대 = 그해 회사 직원 전체의 평균 연봉, 막대 아래 숫자 = 그해 직원 수예요. "
+                       "직원이 갑자기 늘면 신입이 많아져서 평균이 내려가 보일 수 있어요.")
+    return (f'<div class="tr">{title}{head}<div class="tr-bars">{bars}</div>'
             f'<p class="tr-basis">그해 회사에 있던 직원 전체의 평균이에요 (한 사람의 연차별 연봉이 아니에요) · '
             f'막대 아래 숫자는 그해 직원 수 · {html.escape(tr["basis"])}</p>{notes}</div>')
 
@@ -903,8 +936,11 @@ def headcount_chart(series):
     bars = "".join(
         f'<div class="hc-bar" title="{k} · {v:,}명"><span style="height:{(v - lo) / (hi - lo or 1) * 100:.0f}%"></span>'
         f'<em>{int(k[5:])}월</em></div>' for k, v in vals.items())
-    return (f'<div class="hc"><small>직원 수 추이 · 2025년 1~12월 (가장 적은 달 {min(vals.values()):,}명 · '
-            f'가장 많은 달 {max(vals.values()):,}명)</small><div class="hc-bars">{bars}</div></div>')
+    title = chart_head("👥 2025년 달마다 직원 수",
+                       "막대가 높을수록 그 달 직원이 많았어요. 차이가 잘 보이게 바닥을 잘라서, 실제 차이보다 크게 보여요. "
+                       "컴퓨터에서는 막대에 마우스를 올리면 그 달 직원 수가 나와요.")
+    return (f'<div class="hc">{title}<small>가장 적은 달 {min(vals.values()):,}명 · '
+            f'가장 많은 달 {max(vals.values()):,}명</small><div class="hc-bars">{bars}</div></div>')
 
 
 def similar_block(r):
@@ -1021,8 +1057,11 @@ def show_visuals(kind, rows, i=0):
             with c2.popover("공시가 왜 더 높을까요?" if dart >= est else "추정이 왜 더 높을까요?",
                             icon=":material/help_outline:", use_container_width=True):
                 st.markdown(WHY_ACTUAL_HIGHER if dart >= est else WHY_EST_HIGHER)
-        st.markdown(single_cards(r), unsafe_allow_html=True)
-        my_year_box(r, i)
+        st.markdown(single_cards(r, "top"), unsafe_allow_html=True)
+        if r.get("tenure_curve"):  # 연차별 연봉을 위로 올려 크게: 그래프 바로 밑에 '내 연차' 칸
+            st.markdown(tenure_chart(r["tenure_curve"]), unsafe_allow_html=True)
+            my_year_box(r, i)
+        st.markdown(single_cards(r, "rest"), unsafe_allow_html=True)
         similar_block(r)
         share_box(r["name"])
         return
@@ -1051,6 +1090,9 @@ st.markdown("""<style>
 [class*="st-key-whohead"] { margin-bottom:2px; }
 [class*="st-key-whohead"] button { min-height:0 !important; padding:0 4px !important; }
 [class*="st-key-whohead"] button p { font-size:12px !important; color:#0868ec !important; }
+.s-auto-g { font-size:12.5px !important; color:#24456c !important; background:#eef5ff; border:1px solid #cfe1f8;
+            border-radius:10px; padding:6px 10px; margin:2px 0 6px !important; line-height:1.6; }
+.s-auto-g b { color:#0757c8; }
 .s-filter-h { font-size:13px !important; font-weight:650; color:#24456c !important; margin:0 0 4px !important; }
 .st-key-filterbox [data-testid="stForm"] { max-width:none; border:0; border-radius:14px; box-shadow:none;
                background:transparent; padding:4px 2px; }
@@ -1177,9 +1219,19 @@ with st.container(key="hero"):
     with st.container(key="filterbox"):
         st.markdown('<p class="s-filter-h">🎛️ 조건으로 찾기 · 업종 · 지역 · 규모 · 연봉 · 요즘 채용 많은 곳</p>',
                     unsafe_allow_html=True)
+        # 피드백 '검색했을 때 해당 업종 필터로 맞춰지기': 회사를 찾으면 그 회사 업종을 업종 칸에 미리 넣어 둔다
+        # (위젯이 그려지기 전에만 값을 바꿀 수 있어서, 결과를 만든 뒤 다시 그리면서 여기서 넣는다)
+        auto = st.session_state.pop("pending_group", None)
+        if auto:
+            st.session_state["f_groups"] = [auto[0]]
+            st.session_state["auto_group_note"] = auto
+        note = st.session_state.get("auto_group_note")
+        if note and st.session_state.get("f_groups") == [note[0]]:
+            st.markdown(f'<p class="s-auto-g">🔎 방금 찾은 <b>{html.escape(note[1])}</b>의 업종 <b>{html.escape(note[0])}</b>(으)로 맞춰 뒀어요. '
+                        '[이 조건으로 찾기]를 누르면 같은 업종 회사를 연봉 순으로 볼 수 있어요.</p>', unsafe_allow_html=True)
         with st.form("filters", border=False):
             f1, f2 = st.columns(2)
-            groups = f1.multiselect("업종", filters.GROUP_NAMES, placeholder="전체 업종")
+            groups = f1.multiselect("업종", filters.GROUP_NAMES, placeholder="전체 업종", key="f_groups")
             regions = f2.multiselect("지역", sorted(DATA["sido"].dropna().unique()), placeholder="전체 지역",
                                      help="그 지역에 있는 사업장 기준이에요. 여러 지역에 사업장이 있는 회사는 그 지역 몫만 계산해요. "
                                           "전국 직원을 본사 한 곳으로 신고한 회사(삼성전자 등)는 본사 지역에만 나와요.")
@@ -1470,6 +1522,13 @@ msgs = st.session_state["messages"]
 if new_msg:
     msgs.append({"role": "user", "content": new_user})
     msgs.append(new_msg)
+    if new_msg.get("kind") == "single" and new_msg.get("rows"):  # 찾은 회사의 업종을 위 필터 업종 칸에 맞춘다
+        r0 = new_msg["rows"][0]
+        g = DATA.loc[DATA["company_key"] == r0.get("company_key"), "group"]
+        g = g.iloc[0] if len(g) else None
+        if g in filters.GROUP_NAMES and st.session_state.get("f_groups") != [g]:
+            st.session_state["pending_group"] = (g, new_msg.get("brand") or r0["name"])
+            st.rerun()  # 필터 칸은 이미 그려져서, 결과는 그대로 두고 한 번 더 그리며 업종을 넣는다
 pairs = []
 for i, m in enumerate(msgs):
     if m["role"] == "user":
