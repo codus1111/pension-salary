@@ -686,11 +686,11 @@ def method_and_limits() -> dict:
         ],
         # 평가에서 모델이 상한을 기억으로 '월 617만 원'(2025년 값)·'월 790만 원'으로 써서, 지금 값을 문장으로 준다
         "cap_text": f"보험료 상한: 기준소득월액 월 {META['cap_monthly'] / 1e4:,.0f}만 원 (2026년 7월부터), 연으로 {CAP_ANNUAL / 1e4:,.0f}만 원",
-        "accuracy_text": f"상장사 {META['train_companies']:,}곳 교차검증: 평균 오차율 1차 추정 14.6% → 보정 후 11.1%. "
+        "accuracy_text": f"상장사 {META['train_companies']:,}곳 교차검증: 평균 오차율 1차 추정 14.6% → 보정 후 11.4%. "
                          "순위 상관 0.88이라 금액보다 회사끼리 비교에 더 믿을 만하다",
         "validation": {
             "companies": META["train_companies"],
-            "mape_first_estimate": 0.146, "mape_corrected_model": 0.111,
+            "mape_first_estimate": 0.146, "mape_corrected_model": 0.114,
             "by_band": META["intervals"],
         },
         "limits": [

@@ -27,7 +27,7 @@
   {"id": "q13", "type": "업종", "question": "게임 회사 중에 연봉 높은 곳 알려줘",
    "expect_key_any": ["넥슨코리아|", "크래프톤|", "엔씨|220814", "넷마블|"]},
   {"id": "q14", "type": "방법", "question": "이 연봉 추정은 얼마나 정확해?",
-   "expect_tools": ["method_and_limits"], "answer_any": [["14.6", "11.1", "11%", "15%"]]},
+   "expect_tools": ["method_and_limits"], "answer_any": [["14.6", "11.4", "11%", "15%"]]},
   {"id": "q15", "type": "방법", "question": "왜 연봉 높은 회사는 낮게 추정돼?",
    "answer_any": [["상한"]]},
   {"id": "q16", "type": "범위 밖", "question": "삼성전자 신입 초봉 얼마야?",
